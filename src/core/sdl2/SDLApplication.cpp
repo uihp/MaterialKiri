@@ -20,13 +20,16 @@
 #include "ScriptMgnIntf.h"
 #include "SystemControl.h"
 #include "PluginImpl.h"
-#ifdef KRKRZ_ENABLE_CANVAS
+#if 1 //def KRKRZ_ENABLE_CANVAS
 #include "OpenGLScreenSDL2.h"
 #endif
 #ifdef _WIN32
 #include <SDL_syswm.h>
 #endif
 #include <SDL.h>
+#ifndef __EMSCRIPTEN__
+#include <glad/glad.h>
+#endif
 #ifdef _WIN32
 #include <shellapi.h>
 #include <stdlib.h>
@@ -50,7 +53,7 @@ EM_JS_DEPS(main, "$FS,$IDBFS");
 #endif
 
 #if defined(__IPHONEOS__) || defined(__ANDROID__) || defined(__EMSCRIPTEN__) || defined(__vita__) || defined(__SWITCH__)
-#define KRKRSDL2_WINDOW_SIZE_IS_LAYER_SIZE
+// #define KRKRSDL2_WINDOW_SIZE_IS_LAYER_SIZE
 #endif
 
 #if defined(__linux__)
@@ -500,7 +503,7 @@ protected:
 	SDL_Texture *texture;
 	SDL_Renderer *renderer;
 	SDL_Surface *surface;
-#ifdef KRKRZ_ENABLE_CANVAS
+#if 1 //def KRKRZ_ENABLE_CANVAS
 	SDL_GLContext context;
 #endif
 	tTJSNI_Window *TJSNativeInstance;
@@ -518,7 +521,7 @@ protected:
 	iTJSDispatch2 *fileDropArray;
 	tjs_int fileDropArrayCount;
 	TVPSDLBitmapCompletion *bitmapCompletion;
-#ifdef KRKRZ_ENABLE_CANVAS
+#if 1 //def KRKRZ_ENABLE_CANVAS
 	tTVPOpenGLScreen *openGlScreen;
 #endif
 	int lastMouseX;
@@ -633,11 +636,12 @@ public:
 	/* Called from tTJSNI_Window */
 	virtual void SetPosition(tjs_int l, tjs_int t) override;
 	virtual TVPSDLBitmapCompletion *GetTVPSDLBitmapCompletion() override;
-#ifdef KRKRZ_ENABLE_CANVAS
+#if 1 //def KRKRZ_ENABLE_CANVAS
 	virtual void SetOpenGLScreen(tTVPOpenGLScreen *s) override;
 	virtual void SetSwapInterval(int interval) override;
 	virtual void GetDrawableSize(tjs_int &w, tjs_int &h) override;
 	virtual void Swap() override;
+	virtual void MakeCurrent() override;
 #endif
 	virtual void Show() override;
 	/* Called from tTJSNI_Window */
@@ -748,19 +752,23 @@ TVPWindowWindow::TVPWindowWindow(tTJSNI_Window *w)
 	SDL_SetHintWithPriority(SDL_HINT_RENDER_SCALE_QUALITY, "2", SDL_HINT_DEFAULT);
 #endif
 
-#ifdef KRKRZ_ENABLE_CANVAS
+#if 1 //def KRKRZ_ENABLE_CANVAS
+#ifdef __EMSCRIPTEN__
 	if (!TVPIsEnableDrawDevice())
-	{
-#ifdef SDL_HINT_OPENGL_ES_DRIVER
-		SDL_SetHint(SDL_HINT_OPENGL_ES_DRIVER, "1");
 #endif
+	{
+// #ifdef SDL_HINT_OPENGL_ES_DRIVER
+// 		SDL_SetHint(SDL_HINT_OPENGL_ES_DRIVER, "1");
+// #endif
+#ifdef __EMSCRIPTEN__
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-		SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
-		SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
-		SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
-		SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+#endif
+// 		SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+// 		SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+// 		SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+// 		SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 		window_flags |= SDL_WINDOW_OPENGL;
 	}
 #endif
@@ -798,25 +806,37 @@ TVPWindowWindow::TVPWindowWindow(tTJSNI_Window *w)
 	strategy.filteringMode = EMSCRIPTEN_FULLSCREEN_FILTERING_DEFAULT;
 	emscripten_enter_soft_fullscreen("#canvas", &strategy);
 #endif
-#ifdef KRKRZ_ENABLE_CANVAS
+#if 1 //def KRKRZ_ENABLE_CANVAS
 	this->context = nullptr;
+#ifdef __EMSCRIPTEN__
 	if (!TVPIsEnableDrawDevice())
+#endif
 	{
+#ifndef __EMSCRIPTEN__
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+#endif
 		this->context = SDL_GL_CreateContext(this->window);
 		if (!this->context)
 		{
 			TVPThrowExceptionMessage(TJS_W("Cannot create SDL context: %1"), ttstr(SDL_GetError()));
 		}
 		SDL_GL_MakeCurrent(this->window, this->context);
+#ifndef __EMSCRIPTEN__
+		if (!gladLoadGLES2Loader((GLADloadproc) SDL_GL_GetProcAddress))
+			TVPThrowExceptionMessage(TJS_W("Cannot create SDL window: %1"), ttstr("Failed to initialize GLAD"));
+#endif
+    	TVPAddLog(ttstr("OpenGL Version: ") + (char*) glGetString(GL_VERSION));
 	}
 #endif
 	this->renderer = nullptr;
 	this->bitmapCompletion = nullptr;
-#ifdef KRKRZ_ENABLE_CANVAS
+#if 1 //def KRKRZ_ENABLE_CANVAS
 	this->openGlScreen = nullptr;
 #endif
 	this->surface = nullptr;
-#ifdef KRKRZ_ENABLE_CANVAS
+#if 1 //def KRKRZ_ENABLE_CANVAS
 	if (TVPIsEnableDrawDevice())
 #endif
 	{
@@ -883,7 +903,7 @@ TVPWindowWindow::~TVPWindowWindow()
 		delete this->bitmapCompletion;
 		this->bitmapCompletion = nullptr;
 	}
-#ifdef KRKRZ_ENABLE_CANVAS
+#if 1 //def KRKRZ_ENABLE_CANVAS
 	if (this->context)
 	{
 		SDL_GL_DeleteContext(this->context);
@@ -1642,7 +1662,7 @@ TVPSDLBitmapCompletion *TVPWindowWindow::GetTVPSDLBitmapCompletion()
 	this->needsGraphicUpdate = true;
 	return this->bitmapCompletion;
 }
-#ifdef KRKRZ_ENABLE_CANVAS
+#if 1 //def KRKRZ_ENABLE_CANVAS
 void TVPWindowWindow::SetOpenGLScreen(tTVPOpenGLScreen *s)
 {
 	this->openGlScreen = s;
@@ -1668,6 +1688,13 @@ void TVPWindowWindow::Swap()
 	if (this->context)
 	{
 		SDL_GL_SwapWindow(this->window);
+	}
+}
+void TVPWindowWindow::MakeCurrent()
+{
+	if (this->context)
+	{
+		SDL_GL_MakeCurrent(this->window, this->context);
 	}
 }
 #endif
@@ -1761,10 +1788,10 @@ void TVPWindowWindow::TickBeat()
 			this->needsGraphicUpdate = false;
 		}
 	}
-#ifdef KRKRZ_ENABLE_CANVAS
+#if 1 //def KRKRZ_ENABLE_CANVAS
 	else if (this->context && this->TJSNativeInstance)
 	{
-		this->TJSNativeInstance->StartDrawing();
+		// this->TJSNativeInstance->StartDrawing();
 		this->hasDrawn = true;
 	}
 #endif

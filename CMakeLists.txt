@@ -17,6 +17,9 @@ endif()
 
 project(krkrsdl2)
 
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_CXX_STANDARD 17)
+
 # Disable install for subprojects
 if(NOT DEFINED _DISABLE_INSTALLATION)
 set(_DISABLE_INSTALLATION FALSE)
@@ -31,7 +34,7 @@ if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13")
 cmake_policy(SET CMP0077 NEW)
 endif()
 option(OPTION_ENABLE_ASYNC_IMAGE_LOAD "Enable async image load. Not applicable to Emscripten build." ON)
-option(OPTION_ENABLE_CANVAS "Enable Canvas interface. Requires OpenGL ES or ANGLE at runtime." OFF)
+option(OPTION_ENABLE_CANVAS "Enable Canvas interface. Requires OpenGL ES or ANGLE at runtime." ON)
 option(OPTION_ENABLE_CASEINSENSITIVITY "Enable case insensitivity. May malfunction if directories in the path are not listable." ON)
 option(OPTION_ENABLE_SDL_THREADS "Enable SDL threads. May be more useful on platforms that do not have a good implementation of std::thread." OFF)
 option(OPTION_ENABLE_EXTERNAL_PLUGINS "Enable external plugins. This will make Plugins.link load a plugin instead of a no-op." ON)
@@ -40,16 +43,24 @@ option(KRKRSDL2_EMSCRIPTEN_ENABLE_JS_FALLBACK "Enable JavaScript fallback for th
 option(KRKRSDL2_EMSCRIPTEN_ENABLE_BIGINT "Enable BigInt support for the Emscripten build." ON)
 option(KRKRSDL2_EMSCRIPTEN_ENABLE_WASM_SIMD "Enable WebAssembly SIMD for the Emscripten build." OFF)
 option(KRKRSDL2_EMSCRIPTEN_ENABLE_THREADS "Enable threads for the Emscripten build." OFF)
-option(KRKRSDL2_EMSCRIPTEN_ENABLE_SOURCE_MAPS "Enable threads for the Emscripten build." OFF)
+option(KRKRSDL2_EMSCRIPTEN_ENABLE_SOURCE_MAPS "Enable sourcemaps for the Emscripten build." ON)
 set(KRKRSDL2_EMSCRIPTEN_INITIAL_MEMORY "134217728" CACHE STRING "Initial memory usage for the Emscripten build.")
 option(KRKRSDL2_BUILD_ENABLE_WARNINGS "Enable warnings when building the project." OFF)
 
-if((NOT DEFINED CMAKE_BUILD_TYPE) OR (NOT CMAKE_BUILD_TYPE) OR (CMAKE_BUILD_TYPE STREQUAL ""))
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten")
-set(CMAKE_BUILD_TYPE MinSizeRel)
-else()
-set(CMAKE_BUILD_TYPE RelWithDebInfo)
-endif()
+# if((NOT DEFINED CMAKE_BUILD_TYPE) OR (NOT CMAKE_BUILD_TYPE) OR (CMAKE_BUILD_TYPE STREQUAL ""))
+# if(${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten")
+# set(CMAKE_BUILD_TYPE MinSizeRel)
+# else()
+# set(CMAKE_BUILD_TYPE RelWithDebInfo)
+# endif()
+# endif()
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+	list(APPEND KRKRSDL2_DEFINITIONS _DEBUG)
+	if (WIN32)
+		list(APPEND KRKRSDL2_DEFINITIONS ENABLE_DEBUGGER)
+		list(APPEND KRKRSDL2_DEFINITIONS KRKRSDL2_USE_WIN32_EVENT_QUEUE)
+	endif()
 endif()
 
 if(NOT DEFINED KRKRSDL2_REPO_DIR)
@@ -76,14 +87,14 @@ else()
 set(EVAL_ENABLE_SDL_THREADS OFF)
 endif()
 
-if((OPTION_ENABLE_EXTERNAL_PLUGINS) AND (NOT (VITA OR NINTENDO_SWITCH)))
+if((OPTION_ENABLE_EXTERNAL_PLUGINS) AND (NOT (VITA OR NINTENDO_SWITCH OR (${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten"))))
 set(EVAL_ENABLE_EXTERNAL_PLUGINS ON)
 else()
 set(EVAL_ENABLE_EXTERNAL_PLUGINS OFF)
 endif()
 
 if(NOT KRKRSDL2_ENABLE_PRECOMPILED_HEADERS)
-if(WIN32)
+if(WIN32 OR ANDROID)
 set(KRKRSDL2_ENABLE_PRECOMPILED_HEADERS OFF)
 else()
 set(KRKRSDL2_ENABLE_PRECOMPILED_HEADERS ON)
@@ -115,7 +126,7 @@ if(APPLE AND IOS)
 set(IOS_RESOURCES_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/ios CACHE FILEPATH "The path to the resources for iOS.")
 endif()
 
-if(APPLE AND NOT IOS)
+if((APPLE AND NOT IOS) OR ANDROID)
 set(MACOS_RESOURCES_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/macos CACHE FILEPATH "The path to the resources for macOS.")
 add_compile_options(-Wno-declaration-after-statement)
 endif()
@@ -163,6 +174,10 @@ list(APPEND KRKRSDL2COMMON_SRC src/support/roundevenf.c)
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten")
 list(APPEND KRKRSDL2COMMON_SRC src/plugins/kremscripten.cpp)
+endif()
+
+if(WIN32)
+list(APPEND KRKRSDL2COMMON_SRC external/krkrz/visual/win32/NativeFreeTypeFace.cpp)
 endif()
 
 list(APPEND KRKRSDL2_DEFINITIONS
@@ -314,12 +329,13 @@ list(APPEND KRKRSDL2_LIBS
 	dxguid
 	windowscodecs
 )
-if((${CMAKE_SYSTEM_PROCESSOR} STREQUAL "i686") OR (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "amd64"))
+string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" processor_arch_lowercase)
+if((processor_arch_lowercase STREQUAL "i686") OR (processor_arch_lowercase STREQUAL "amd64"))
 list(APPEND KRKRSDL2_LIBS
 	quartz
 )
 endif()
-if((${CMAKE_SYSTEM_PROCESSOR} STREQUAL "i686") OR (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "amd64"))
+if((processor_arch_lowercase STREQUAL "i686") OR (processor_arch_lowercase STREQUAL "amd64"))
 set_source_files_properties(${KIRIKIRISDL2_SSE2_SRC} PROPERTIES COMPILE_FLAGS -msse2)
 set_source_files_properties(${KIRIKIRISDL2_AVX2_SRC} PROPERTIES COMPILE_FLAGS -mavx2)
 endif()
@@ -409,22 +425,24 @@ list(APPEND KRKRSDL2_DEFINITIONS
 endif()
 
 if(OPTION_ENABLE_CANVAS)
-list(APPEND KRKRSDL2_DEFINITIONS
-	KRKRZ_ENABLE_CANVAS
-)
+# list(APPEND KRKRSDL2_DEFINITIONS
+# 	KRKRZ_ENABLE_CANVAS
+# )
 list(APPEND KRKRSDL2COMMON_SRC
-	external/krkrz/visual/opengl/CanvasIntf.cpp
+	# external/krkrz/visual/opengl/CanvasIntf.cpp
 	external/krkrz/visual/opengl/DrawCycleTimer.cpp
-	external/krkrz/visual/opengl/GLFrameBufferObject.cpp
+	# external/krkrz/visual/opengl/GLFrameBufferObject.cpp
 	external/krkrz/visual/opengl/GLShaderUtil.cpp
+	external/krkrz/visual/opengl/GLTexture.cpp
 	external/krkrz/visual/opengl/Matrix32Intf.cpp
 	external/krkrz/visual/opengl/Matrix44Intf.cpp
-	external/krkrz/visual/opengl/OffscreenIntf.cpp
-	external/krkrz/visual/opengl/ShaderProgramIntf.cpp
+	# external/krkrz/visual/opengl/OffscreenIntf.cpp
+	# external/krkrz/visual/opengl/ShaderProgramIntf.cpp
 	external/krkrz/visual/opengl/TextureIntf.cpp
 	external/krkrz/visual/opengl/VertexBinderIntf.cpp
 	external/krkrz/visual/opengl/VertexBufferIntf.cpp
 	src/core/visual/sdl2/opengl/OpenGLScreenSDL2.cpp
+	src/core/visual/sdl2/opengl/OGLDrawDevice.cpp
 )
 list(APPEND KRKRSDL2COMMON_INCLUDES
 	src/core/visual/sdl2/opengl
@@ -455,6 +473,10 @@ if(EVAL_ENABLE_EXTERNAL_PLUGINS)
 list(APPEND KRKRSDL2_DEFINITIONS
 	KRKRSDL2_ENABLE_PLUGINS
 )
+else()
+list(APPEND KRKRSDL2_DEFINITIONS
+	NO_V2LINK
+)
 endif()
 
 if(KRKRSDL2_COMPILER_SUPPORTS_NO_DELETE_NULL_POINTER_CHECKS)
@@ -469,6 +491,7 @@ list(APPEND KRKRSDL2_LIBS
 )
 endif()
 
+if(NOT (${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten"))
 if(IOS)
 set(SDL_SHARED_ENABLED_BY_DEFAULT OFF)
 set(SDL_SHARED OFF)
@@ -550,6 +573,24 @@ list(APPEND KRKRSDL2_LIBS
 	${SDL2_LIBRARIES}
 )
 endif()
+endif()
+
+add_subdirectory(external/ogg)
+add_subdirectory(external/vorbis)
+list(APPEND KRKRSDL2_LIBS
+	vorbis
+	vorbisfile
+)
+
+add_subdirectory(external/glad-es3.0)
+list(APPEND KRKRSDL2_LIBS
+	glad
+)
+
+# find_package(OpenCV REQUIRED)
+# # target_include_directories(${PROJECT_NAME} PUBLIC ${OpenCV_INCLUDE_DIRS})
+# include_directories(${OpenCV_INCLUDE_DIRS})
+# list(APPEND KRKRSDL2_LIBS ${OpenCV_LIBS})
 
 if(NOT (${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten"))
 set(XNASONG OFF CACHE BOOL "Intentionally disabled for FAudio: enable XNA_Song.c" FORCE)
@@ -580,9 +621,16 @@ add_library(${KRKRSDL2COMMON_NAME} STATIC)
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 set_target_properties(${KRKRSDL2COMMON_NAME} PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 endif()
-set_target_properties(${KRKRSDL2COMMON_NAME} PROPERTIES C_STANDARD 11)
-set_target_properties(${KRKRSDL2COMMON_NAME} PROPERTIES CXX_STANDARD 14)
+# set_target_properties(${KRKRSDL2COMMON_NAME} PROPERTIES C_STANDARD 11)
+# set_target_properties(${KRKRSDL2COMMON_NAME} PROPERTIES CXX_STANDARD 14)
 target_sources(${KRKRSDL2COMMON_NAME} PRIVATE ${KRKRSDL2COMMON_SRC})
+target_sources(${KRKRSDL2COMMON_NAME} PUBLIC
+	${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/addFont.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/csvParser.cpp
+	# ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/getSample.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/menu.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/scriptsEx.cpp
+)
 target_compile_definitions(${KRKRSDL2COMMON_NAME} PUBLIC ${KRKRSDL2_DEFINITIONS})
 target_compile_options(${KRKRSDL2COMMON_NAME} PUBLIC $<$<COMPILE_LANGUAGE:C>:${KRKRSDL2_CFLAGS}>)
 target_compile_options(${KRKRSDL2COMMON_NAME} PUBLIC $<$<COMPILE_LANGUAGE:CXX>:${KRKRSDL2_CXXFLAGS}>)
@@ -599,6 +647,11 @@ endif()
 
 list(APPEND KRKRSDL2_LIBS
 	${KRKRSDL2COMMON_NAME}
+)
+
+add_subdirectory(src/plugins)
+list(APPEND KRKRSDL2_LIBS
+	krkrsdl2plugin
 )
 endif()
 
@@ -626,8 +679,8 @@ endif()
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 set_target_properties(${KRKRSDL2_NAME} PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 endif()
-set_target_properties(${KRKRSDL2_NAME} PROPERTIES C_STANDARD 11)
-set_target_properties(${KRKRSDL2_NAME} PROPERTIES CXX_STANDARD 14)
+# set_target_properties(${KRKRSDL2_NAME} PROPERTIES C_STANDARD 11)
+# set_target_properties(${KRKRSDL2_NAME} PROPERTIES CXX_STANDARD 14)
 target_sources(${KRKRSDL2_NAME} PRIVATE ${KRKRSDL2_SRC})
 target_compile_definitions(${KRKRSDL2_NAME} PUBLIC ${KRKRSDL2_DEFINITIONS})
 target_compile_options(${KRKRSDL2_NAME} PUBLIC $<$<COMPILE_LANGUAGE:C>:${KRKRSDL2_CFLAGS}>)

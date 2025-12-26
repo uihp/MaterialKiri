@@ -178,6 +178,11 @@ tjs_string ExePath() {
 	{
 		exepath = tjs_string(_wargv[0]);
 	}
+#else
+	if (exepath.empty())
+	{
+		exepath = TJS_W("/");
+	}
 #endif
 	return exepath;
 }
@@ -471,6 +476,7 @@ bool tTVPApplication::StartApplication( int argc, tjs_char* argv[] ) {
 		image_load_thread_ = new tTVPAsyncImageLoader();
 #endif
 
+		TVPLoadInternalPlugins();
 		TVPSystemInit();
 
 		if(TVPCheckAbout()) return true; // version information dialog box;
@@ -560,7 +566,7 @@ bool tTVPApplication::StartApplication( int argc, tjs_char* argv[] ) {
  * コンソールからの起動か確認し、コンソールからの起動の場合は、標準出力を割り当てる
  */
 void tTVPApplication::CheckConsole() {
-#if 0
+#if __WIN32__
 #ifdef TVP_LOG_TO_COMMANDLINE_CONSOLE
 	if( has_map_report_process_ ) return; // 書き出し用子プロセスして起動されていた時はコンソール接続しない
 	HANDLE hin  = ::GetStdHandle(STD_INPUT_HANDLE);
@@ -668,7 +674,25 @@ void tTVPApplication::PrintConsole( const tjs_char* mes, unsigned long len, bool
 	if (is_attach_console_)
 	{
 		HANDLE hStdOutput = ::GetStdHandle(iserror ? STD_ERROR_HANDLE : STD_OUTPUT_HANDLE);
-		if ((LONG_PTR)hStdOutput > 0)
+		// LPVOID lpMsgBuf;
+		// DWORD dw = GetLastError(); 
+
+		// if (FormatMessage(
+		// 	FORMAT_MESSAGE_ALLOCATE_BUFFER | 
+		// 	FORMAT_MESSAGE_FROM_SYSTEM |
+		// 	FORMAT_MESSAGE_IGNORE_INSERTS,
+		// 	NULL,
+		// 	dw,
+		// 	MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		// 	(LPTSTR) &lpMsgBuf,
+		// 	0, NULL) == 0) {
+		// 	MessageBox(NULL, TEXT("FormatMessage failed"), TEXT("Error"), MB_OK);
+		// 	ExitProcess(dw);
+		// }
+		// MessageBox(NULL, (LPCTSTR)lpMsgBuf, TEXT("Error"), MB_OK);
+
+		// LocalFree(lpMsgBuf);
+		if (1 || (LONG_PTR)hStdOutput > 0)
 		{
 			DWORD mode;
 			if (GetConsoleMode(hStdOutput, &mode))
@@ -802,7 +826,7 @@ void tTVPApplication::Run() {
 	{
 		if (SDL_WasInit(SDL_INIT_EVENTS) != 0)
 		{
-#ifndef __EMSCRIPTEN__
+#if 0 //ifndef __EMSCRIPTEN__
 			SDL_WaitEvent(NULL);
 #endif
 		}

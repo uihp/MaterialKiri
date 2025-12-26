@@ -1,4 +1,4 @@
-def buildAsLibrary = project.hasProperty('BUILD_AS_LIBRARY');
+def buildAsLibrary = project.hasProperty('BUILD_AS_LIBRARY')
 def buildAsApplication = !buildAsLibrary
 if (buildAsApplication) {
     apply plugin: 'com.android.application'
@@ -31,7 +31,7 @@ def get_cmakelists_path() {
     return rootProject.projectDir.getAbsolutePath() + '/../CMakeLists.txt'
 }
 
-def get_cmake_arguments() {
+static def get_cmake_arguments() {
     def in_cmake_arguments = []
     in_cmake_arguments.add("-DANDROID_APP_PLATFORM=android-16")
     in_cmake_arguments.add("-DANDROID_STL=c++_static")
@@ -39,13 +39,14 @@ def get_cmake_arguments() {
 }
 
 android {
-    compileSdkVersion 26
+    namespace = "pw.uyjulian.krkrsdl2"
+    compileSdkVersion 36
     defaultConfig {
         if (buildAsApplication) {
             applicationId "pw.uyjulian.krkrsdl2"
         }
-        minSdkVersion 16
-        targetSdkVersion 26
+        minSdkVersion 21
+        targetSdkVersion 36
         versionCode 1
         versionName "1.0"
         externalNativeBuild {
@@ -54,7 +55,7 @@ android {
                 abiFilters.addAll(get_abi_filters())
                 arguments = []
                 arguments.addAll(get_cmake_arguments())
-                version "3.12+"
+                version = "3.12+"
             }
         }
     }
@@ -79,7 +80,7 @@ android {
        
     }
     lintOptions {
-        abortOnError false
+        abortOnError = false
     }
     
     if (buildAsLibrary) {
@@ -87,8 +88,8 @@ android {
             variant.outputs.each { output ->
                 def outputFile = output.outputFile
                 if (outputFile != null && outputFile.name.endsWith(".aar")) {
-                    def fileName = "org.libsdl.app.aar";
-                    output.outputFile = new File(outputFile.parent, fileName);
+                    def fileName = "org.libsdl.app.aar"
+                    output.outputFile = new File(outputFile.parent, fileName)
                 }
             }
         }
