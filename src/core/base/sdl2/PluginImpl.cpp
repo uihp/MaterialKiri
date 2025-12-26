@@ -55,6 +55,8 @@
 #include "SysInitImpl.h"
 #include <set>
 
+#include "ncbind.hpp"
+bool TVPLoadInternalPlugin(const ttstr &_name);
 
 //---------------------------------------------------------------------------
 // export table
@@ -290,7 +292,8 @@ tTVPPlugin::tTVPPlugin(const ttstr & name, ITSSStorageProvider *storageprovider)
 		{
 			delete Holder;
 		}
-		TVPThrowExceptionMessage(TVPCannotLoadPlugin, name);
+			TVPThrowExceptionMessage(TVPCannotLoadPlugin, name);
+		}
 	}
 
 	try
@@ -490,37 +493,41 @@ tTVPAtExit TVPDestroyPluginVectorAtExit
 static bool TVPPluginLoading = false;
 void TVPLoadPlugin(const ttstr & name)
 {
+    if(TVPLoadInternalPlugin(name)) {
+        TVPAddLog(ttstr("Loaded internal plugin: ") + name);
+    } else {
 #ifdef KRKRSDL2_ENABLE_PLUGINS
-	// load plugin
-	if(TVPPluginLoading)
-		TVPThrowExceptionMessage(TVPCannnotLinkPluginWhilePluginLinking);
-			// linking plugin while other plugin is linking, is prohibited
-			// by data security reason.
+		// load plugin
+		if(TVPPluginLoading)
+			TVPThrowExceptionMessage(TVPCannnotLinkPluginWhilePluginLinking);
+				// linking plugin while other plugin is linking, is prohibited
+				// by data security reason.
 
-	// check whether the same plugin was already loaded
-	tTVPPluginVectorType::iterator i;
-	for(i = TVPPluginVector.Vector.begin();
-		i != TVPPluginVector.Vector.end(); i++)
-	{
-		if((*i)->Name == name) return;
-	}
+		// check whether the same plugin was already loaded
+		tTVPPluginVectorType::iterator i;
+		for(i = TVPPluginVector.Vector.begin();
+			i != TVPPluginVector.Vector.end(); i++)
+		{
+			if((*i)->Name == name) return;
+		}
 
-	tTVPPlugin * p;
+		tTVPPlugin * p;
 
-	try
-	{
-		TVPPluginLoading = true;
-		p = new tTVPPlugin(name, &TVPPluginVector.StorageProvider);
-		TVPPluginLoading = false;
-	}
-	catch(...)
-	{
-		TVPPluginLoading = false;
-		throw;
-	}
+		try
+		{
+			TVPPluginLoading = true;
+			p = new tTVPPlugin(name, &TVPPluginVector.StorageProvider);
+			TVPPluginLoading = false;
+		}
+		catch(...)
+		{
+			TVPPluginLoading = false;
+			throw;
+		}
 
-	TVPPluginVector.Vector.push_back(p);
+		TVPPluginVector.Vector.push_back(p);
 #endif
+    }
 }
 //---------------------------------------------------------------------------
 bool TVPUnloadPlugin(const ttstr & name)
@@ -1206,6 +1213,11 @@ TJS_END_NATIVE_STATIC_METHOD_DECL_OUTER(cls, getList)
 }
 //---------------------------------------------------------------------------
 
+void TVPLoadInternalPlugins() {
+    ncbAutoRegister::AllRegist();
+}
 
-
-
+bool TVPLoadInternalPlugin(const ttstr &name_) {
+	ttstr name = TVPExtractStorageName(name_);
+    return ncbAutoRegister::LoadModule(TVPExtractStorageName(name));
+}

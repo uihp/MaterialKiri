@@ -13,6 +13,7 @@ external/krkrz/extension/Extension.cpp
 external/krkrz/msg/MsgIntf.cpp
 external/krkrz/sound/MathAlgorithms.cpp
 external/krkrz/sound/OpusCodecDecoder.cpp
+external/krkrz/sound/VorbisCodecDecoder.cpp
 external/krkrz/sound/PhaseVocoderDSP.cpp
 external/krkrz/sound/PhaseVocoderFilter.cpp
 external/krkrz/sound/QueueSoundBufferImpl.cpp
@@ -475,4 +476,4 @@ src/core/visual/sdl2/LayerImpl.cpp
 src/core/visual/sdl2/TVPScreen.cpp
 src/core/visual/sdl2/VideoOvlImpl.cpp
 src/core/visual/sdl2/WindowImpl.cpp
-src/core/visual/sdl2/opengl/OpenGLPlatformSDL2.cpp
+src/core/plugin/ncbind.cpp

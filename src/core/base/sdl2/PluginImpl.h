@@ -334,3 +334,5 @@ extern void TVPLoadPluigins(void);
 
 
 #endif
+
+void TVPLoadInternalPlugins();

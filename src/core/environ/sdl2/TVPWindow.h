@@ -326,7 +326,7 @@ public:
 
 extern void sdl_process_events();
 class TVPSDLBitmapCompletion;
-#ifdef KRKRZ_ENABLE_CANVAS
+#if 1 //def KRKRZ_ENABLE_CANVAS
 class tTVPOpenGLScreen;
 #endif
 
@@ -381,11 +381,12 @@ public:
 	virtual void UpdateOverlay() = 0;
 #endif
 	virtual TVPSDLBitmapCompletion *GetTVPSDLBitmapCompletion() = 0;
-#ifdef KRKRZ_ENABLE_CANVAS
+#if 1 //def KRKRZ_ENABLE_CANVAS
 	virtual void SetOpenGLScreen(tTVPOpenGLScreen *s) = 0;
 	virtual void SetSwapInterval(int interval) = 0;
 	virtual void GetDrawableSize(tjs_int &w, tjs_int &h) = 0;
 	virtual void Swap() = 0;
+	virtual void MakeCurrent() = 0;
 #endif
 	virtual void Show() = 0;
 	virtual void TickBeat() = 0;

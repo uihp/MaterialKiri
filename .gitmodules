@@ -1,6 +1,7 @@
 [submodule "external/krkrz"]
 	path = external/krkrz
-	url = https://github.com/krkrsdl2/krkrz.git
+	url = https://github.com/uihp/krkrz.git
+	branch = dev
 [submodule "external/simde"]
 	path = external/simde
 	url = https://github.com/simd-everywhere/simde.git
@@ -16,3 +17,9 @@
 [submodule "external/FAudio"]
 	path = external/FAudio
 	url = https://github.com/FNA-XNA/FAudio.git
+[submodule "external/vorbis"]
+	path = external/vorbis
+	url = https://github.com/xiph/vorbis
+[submodule "external/ogg"]
+	path = external/ogg
+	url = https://gitlab.xiph.org/xiph/ogg

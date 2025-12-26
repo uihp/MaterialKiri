@@ -24,9 +24,9 @@ public:
 
 	void Swap();
 
-	EGLint GetSurfaceWidth() const;
-	EGLint GetSurfaceHeight() const;
-	void GetDrawableSize(EGLint &w, EGLint &h) const;
+	GLint GetSurfaceWidth() const;
+	GLint GetSurfaceHeight() const;
+	void GetDrawableSize(GLint &w, GLint &h) const;
 
 	static bool CheckGLErrorAndLog(const tjs_char* funcname=nullptr);
 

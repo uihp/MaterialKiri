@@ -38,3 +38,4 @@ external/simde
 external/zlib
 src/config
 src/plugins
+src/core/plugin

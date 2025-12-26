@@ -7,7 +7,7 @@
 #include "DebugIntf.h"
 #include "GLTexture.h"
 
-extern int TVPOpenGLESVersion;
+// extern int TVPOpenGLESVersion;
 
 tTVPOpenGLScreen::tTVPOpenGLScreen( TTVPWindowForm* form ) : Form(form),
 mDefaultFrameBufferId(0)
@@ -30,7 +30,7 @@ bool tTVPOpenGLScreen::IsInitialized() const {
 void tTVPOpenGLScreen::Swap() {
 	Form->Swap();
 }
-EGLint tTVPOpenGLScreen::GetSurfaceWidth() const {
+GLint tTVPOpenGLScreen::GetSurfaceWidth() const {
 #if 0
 	int w, h;
 	Form->GetDrawableSize(w, h);
@@ -38,7 +38,7 @@ EGLint tTVPOpenGLScreen::GetSurfaceWidth() const {
 #endif
 	return Form->GetWidth();
 }
-EGLint tTVPOpenGLScreen::GetSurfaceHeight() const {
+GLint tTVPOpenGLScreen::GetSurfaceHeight() const {
 #if 0
 	int w, h;
 	Form->GetDrawableSize(w, h);
@@ -46,7 +46,7 @@ EGLint tTVPOpenGLScreen::GetSurfaceHeight() const {
 #endif
 	return Form->GetHeight();
 }
-void tTVPOpenGLScreen::GetDrawableSize(EGLint &w, EGLint &h) const {
+void tTVPOpenGLScreen::GetDrawableSize(GLint &w, GLint &h) const {
 	Form->GetDrawableSize(w, h);
 }
 bool tTVPOpenGLScreen::CheckGLErrorAndLog(const tjs_char* funcname) {

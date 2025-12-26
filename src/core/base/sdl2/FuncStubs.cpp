@@ -609,7 +609,7 @@ static void STDCALL TVP_Stub_c01b0720b49ce4f792446d8965d2c31f(tTJSString * _this
 }
 static void STDCALL TVP_Stub_4af47e46a11e1357cb994f405289d13e(tTJSString * _this)
 {
-	return _this->ToUppserCase();
+	return _this->ToUpperCase();
 }
 static tjs_uint32 * STDCALL TVP_Stub_25b6dafa19bfa5bde1a8b519da248f82(tTJSString * _this)
 {
@@ -1160,6 +1160,10 @@ static void STDCALL TVP_Stub_1c53bc96ac9dfd483c2227bc5fa44825(const ttstr & name
 static void STDCALL TVP_Stub_1940c8fa03145aa029d0b7718ce0c809(ttstr & name)
 {
 	return TVPGetLocalName(name);
+}
+static ttstr __stdcall TVP_Stub_22bc8eb6589a5225e355fdacd914044c(const ttstr & name)
+{
+	return TVPGetLocallyAccessibleName(name);
 }
 static ttstr STDCALL TVP_Stub_b37f047c0f9bd143b34a2fc87ce5f16e(const ttstr & name)
 {
@@ -3387,6 +3391,7 @@ static void * func_ptrs[] = {
 	(void*)TVP_Stub_5726a5c7af641ebaa504dc9ec8380938,
 	(void*)TVP_Stub_1c53bc96ac9dfd483c2227bc5fa44825,
 	(void*)TVP_Stub_1940c8fa03145aa029d0b7718ce0c809,
+	(void*)TVP_Stub_22bc8eb6589a5225e355fdacd914044c,
 	(void*)TVP_Stub_b37f047c0f9bd143b34a2fc87ce5f16e,
 	(void*)TVP_Stub_dec35fbd2a24fc32e5c220174d864cf4,
 	(void*)TVP_Stub_86fd45a126296891aee413388597203e,
@@ -3800,7 +3805,7 @@ void TVPExportFunctions()
 {
 	const unsigned long compressed_size = 5245;
 	const unsigned long decompressed_size = 43232;
-	const tjs_int function_count = 662;
+	const tjs_int function_count = 663;
 	unsigned char * dest = new unsigned char [decompressed_size];
 
 	try
@@ -3815,6 +3820,10 @@ void TVPExportFunctions()
 
 		for(tjs_int i = 0; i < function_count; i++)
 		{
+			if (i == 277) {
+				TVPAddExportFunction("ttstr ::TVPGetLocallyAccessibleName(const ttstr &)", ((void **)func_ptrs)[i]);
+				continue;
+			}
 			TVPAddExportFunction((const char *)p, ((void **)func_ptrs)[i]);
 			while(*p) p++;
 			p++;
