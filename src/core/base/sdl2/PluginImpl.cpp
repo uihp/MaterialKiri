@@ -292,8 +292,7 @@ tTVPPlugin::tTVPPlugin(const ttstr & name, ITSSStorageProvider *storageprovider)
 		{
 			delete Holder;
 		}
-			TVPThrowExceptionMessage(TVPCannotLoadPlugin, name);
-		}
+		TVPThrowExceptionMessage(TVPCannotLoadPlugin, name);
 	}
 
 	try
