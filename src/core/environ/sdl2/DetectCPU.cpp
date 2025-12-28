@@ -63,21 +63,7 @@ static bool __os_has_avx_support() {
 }
 #else
 // VC 以外は動作未確認
-static inline int __cpuid(int CPUInfo[4],int InfoType) {
-  int highest;
-  asm volatile("cpuid":"=a"(*CPUInfo),"=b"(*(CPUInfo+1)),
-               "=c"(*(CPUInfo+2)),"=d"(*(CPUInfo+3)):"0"(InfoType));
-  return highest;
-}
-static inline int __cpuidex(int CPUInfo[4],int InfoType,int ECXValue) {
-  int highest;
-	asm volatile("xchg{l}\t{%%}ebx, %1\n\t"
-		"cpuid\n\t"
-		"xchg{l}\t{%%}ebx, %1\n\t"
-		: "=a" (CPUInfo[0]), "=r" (CPUInfo[1]), "=c" (CPUInfo[2]), "=d" (CPUInfo[3])
-		: "0" (InfoType), "2" (ECXValue));
-  return highest;
-}
+#include <cpuid.h>
 #include <x86intrin.h>
 #endif
 #endif
@@ -95,7 +81,11 @@ extern tjs_uint32 TVPCPUType;
 #if defined(_M_IX86) || defined(_M_X64) || defined(__i386__) || defined(__x86_64__)
 static void GetCpuid( int op, int& eax, int& ebx, int& ecx, int& edx) {
 	int info[4] = {0,0,0,0};
+#ifdef _MSC_VER
 	__cpuid( info, op );
+#else
+	__cpuid(op, info[0], info[1], info[2], info[3]);
+#endif
 	eax = info[0];
 	ebx = info[1];
 	ecx = info[2];
