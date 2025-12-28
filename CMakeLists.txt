@@ -176,10 +176,6 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten")
 list(APPEND KRKRSDL2COMMON_SRC src/plugins/kremscripten.cpp)
 endif()
 
-if(WIN32)
-list(APPEND KRKRSDL2COMMON_SRC external/krkrz/visual/win32/NativeFreeTypeFace.cpp)
-endif()
-
 list(APPEND KRKRSDL2_DEFINITIONS
 	TVP_COMPILING_KRKRSDL2
 	TVP_OPUS_DECODER_IMPLEMENT
