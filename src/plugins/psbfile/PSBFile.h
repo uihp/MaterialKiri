@@ -15,8 +15,8 @@ class tTJSNI_PsbFile : public tTJSNativeInstance
 
 public:
     tTJSNI_PsbFile();
-    tjs_error Construct(tjs_int numparams, tTJSVariant** param, iTJSDispatch2* tjs_obj);
-    void Invalidate();
+    tjs_error TJS_INTF_METHOD Construct(tjs_int numparams, tTJSVariant** param, iTJSDispatch2* tjs_obj);
+    void TJS_INTF_METHOD Invalidate();
 
     bool load(const ttstr& filePath);
     tTJSVariant root();

@@ -19,9 +19,9 @@ namespace PSB {
     public:
         PSBMedia() : refCount(1) {}
 
-        virtual void AddRef() { refCount++; };
+        virtual void TJS_INTF_METHOD AddRef() { refCount++; };
 
-        virtual void Release()
+        virtual void TJS_INTF_METHOD Release()
         {
             if (refCount == 1)
             {
@@ -34,7 +34,7 @@ namespace PSB {
         };
 
         // returns media name like "file", "http" etc.
-        virtual void GetName(ttstr& name)
+        virtual void TJS_INTF_METHOD GetName(ttstr& name)
         {
             name = TJS_W("psb");
         }
@@ -43,27 +43,27 @@ namespace PSB {
         // returns whether this media is case sensitive or not
 
         // normalize domain name according with the media's rule
-        virtual void NormalizeDomainName(ttstr& name) override;
+        virtual void TJS_INTF_METHOD NormalizeDomainName(ttstr& name) override;
 
         // normalize path name according with the media's rule
-        virtual void NormalizePathName(ttstr& name) override;
+        virtual void TJS_INTF_METHOD NormalizePathName(ttstr& name) override;
 
         // check file existence
-        virtual bool CheckExistentStorage(const ttstr& name) override;
+        virtual bool TJS_INTF_METHOD CheckExistentStorage(const ttstr& name) override;
 
         // open a storage and return a tTJSBinaryStream instance.
         // name does not contain in-archive storage name but
         // is normalized.
-        virtual tTJSBinaryStream* Open(const ttstr& name, tjs_uint32 flags) override;
+        virtual tTJSBinaryStream* TJS_INTF_METHOD Open(const ttstr& name, tjs_uint32 flags) override;
 
         // list files at given place
-        virtual void GetListAt(const ttstr& name,
+        virtual void TJS_INTF_METHOD GetListAt(const ttstr& name,
                                                iTVPStorageLister* lister) override;
 
         // basically the same as above,
         // check wether given name is easily accessible from local OS filesystem.
         // if true, returns local OS native name. otherwise returns an empty string.
-        virtual void GetLocallyAccessibleName(ttstr& name) override;
+        virtual void TJS_INTF_METHOD GetLocallyAccessibleName(ttstr& name) override;
 
         void AddPSBFile(const ttstr& name, PSBMediaInfo data);
         void RemovePSBFile(const ttstr& name);
