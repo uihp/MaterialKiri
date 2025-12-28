@@ -349,7 +349,8 @@ protected:
 	// -------------------------------------------------------------
 	// ダイアログを開く
 	int _open(VarT win) {
-		tTJSVariant *params[] = {};
+		tTJSVariant zv = tTJSVariant(0);
+		tTJSVariant *params[] = {&zv,&zv,&zv};
 		return callback(TJS_W("onInit"), 3, params);
 	}
 	static HWND _getOpenParent(VarT const &win) { }
