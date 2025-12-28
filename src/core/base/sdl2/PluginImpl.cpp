@@ -292,7 +292,23 @@ tTVPPlugin::tTVPPlugin(const ttstr & name, ITSSStorageProvider *storageprovider)
 		{
 			delete Holder;
 		}
-		TVPThrowExceptionMessage(TVPCannotLoadPlugin, name);
+		bool isSkip = false;
+		if (
+			TJS_strstr(name.c_str(), L"extrans.dll") ||
+			TJS_strstr(name.c_str(), L"extNagano.dll") ||
+			TJS_strstr(name.c_str(), L"getLangName.dll") ||
+			TJS_strstr(name.c_str(), L"k2compat.dll") ||
+			TJS_strstr(name.c_str(), L"layerExImage.dll") ||
+			TJS_strstr(name.c_str(), L"proxyfs.dll") ||
+			TJS_strstr(name.c_str(), L"textrender.dll") ||
+			TJS_strstr(name.c_str(), L"wuvorbis.dll")
+		) {
+			TVPAddLog(TJS_W("<<<< skip Cannot load Plugin: ") + name + TJS_W("\n"));
+			isSkip = true;
+		}
+		if (!isSkip) {
+			TVPThrowExceptionMessage(TVPCannotLoadPlugin, name);
+		}
 	}
 
 	try

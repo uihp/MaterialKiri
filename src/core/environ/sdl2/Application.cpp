@@ -674,25 +674,7 @@ void tTVPApplication::PrintConsole( const tjs_char* mes, unsigned long len, bool
 	if (is_attach_console_)
 	{
 		HANDLE hStdOutput = ::GetStdHandle(iserror ? STD_ERROR_HANDLE : STD_OUTPUT_HANDLE);
-		// LPVOID lpMsgBuf;
-		// DWORD dw = GetLastError(); 
-
-		// if (FormatMessage(
-		// 	FORMAT_MESSAGE_ALLOCATE_BUFFER | 
-		// 	FORMAT_MESSAGE_FROM_SYSTEM |
-		// 	FORMAT_MESSAGE_IGNORE_INSERTS,
-		// 	NULL,
-		// 	dw,
-		// 	MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-		// 	(LPTSTR) &lpMsgBuf,
-		// 	0, NULL) == 0) {
-		// 	MessageBox(NULL, TEXT("FormatMessage failed"), TEXT("Error"), MB_OK);
-		// 	ExitProcess(dw);
-		// }
-		// MessageBox(NULL, (LPCTSTR)lpMsgBuf, TEXT("Error"), MB_OK);
-
-		// LocalFree(lpMsgBuf);
-		if (1 || (LONG_PTR)hStdOutput > 0)
+		if ((LONG_PTR)hStdOutput > 0)
 		{
 			DWORD mode;
 			if (GetConsoleMode(hStdOutput, &mode))
