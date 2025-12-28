@@ -11,10 +11,6 @@
         display: flex;
         flex-direction: column;
       }
-      canvas {
-        object-fit: contain;
-        background-color: black;
-      }
 
       /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
       canvas.emscripten { border: 0px none; }
@@ -398,8 +394,8 @@
       <button id="startBtn">Start</button>
     </div>
 
-    <div class="emscripten_border" style="height: 100%; display: flex; justify-content: center; background-color: black;">
-      <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1 style="height: 100%;"></canvas>
+    <div class="emscripten_border" style="height: 100%; display: flex; justify-content: center; align-items: center; background-color: black;">
+      <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1 style="max-width: 100%; max-height: 100%;"></canvas>
     </div>
 
     <script type='text/javascript'>
@@ -587,7 +583,7 @@
         // Download data.xp3
         xhrDownloadFile('patch.tjs', '/patch.tjs');
         xhrDownloadFile('default.ttf', '/default.ttf');
-        Module['FS'].open('/motionplayer.dll', 'w');
+        Module['FS'].writeFile('/motionplayer.dll', '');
       }
       Module['preRun'].push(runWithFS);
 
