@@ -181,7 +181,7 @@ tjs_string ExePath() {
 #else
 	if (exepath.empty())
 	{
-		exepath = TJS_W("/");
+		exepath = TJS_W("/app/");
 	}
 #endif
 	return exepath;
@@ -447,7 +447,9 @@ bool tTVPApplication::StartApplication( int argc, tjs_char* argv[] ) {
 #endif
 	TVPTerminateCode = 0;
 
+#if CHECK_CONSOLE
 	CheckConsole();
+#endif
 
 	// try starting the program!
 	bool engine_init = false;

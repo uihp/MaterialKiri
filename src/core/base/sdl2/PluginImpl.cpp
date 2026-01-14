@@ -300,7 +300,6 @@ tTVPPlugin::tTVPPlugin(const ttstr & name, ITSSStorageProvider *storageprovider)
 			TJS_strstr(name.c_str(), L"k2compat.dll") ||
 			TJS_strstr(name.c_str(), L"layerExImage.dll") ||
 			TJS_strstr(name.c_str(), L"proxyfs.dll") ||
-			TJS_strstr(name.c_str(), L"textrender.dll") ||
 			TJS_strstr(name.c_str(), L"wuvorbis.dll")
 		) {
 			TVPAddLog(TJS_W("<<<< skip Cannot load Plugin: ") + name + TJS_W("\n"));
