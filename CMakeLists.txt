@@ -622,7 +622,8 @@ target_sources(${KRKRSDL2COMMON_NAME} PRIVATE ${KRKRSDL2COMMON_SRC})
 target_sources(${KRKRSDL2COMMON_NAME} PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/addFont.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/csvParser.cpp
-	# ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/getSample.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/cxdec.c
+	${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/cxdecoder.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/menu.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/scriptsEx.cpp
 )
