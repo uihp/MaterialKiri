@@ -813,9 +813,15 @@ TVPWindowWindow::TVPWindowWindow(tTJSNI_Window *w)
 #endif
 	{
 #ifndef __EMSCRIPTEN__
+#ifdef WEBGL2_COMPATIBILITY
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+#else
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
+#endif
 #endif
 		this->context = SDL_GL_CreateContext(this->window);
 		if (!this->context)
@@ -824,7 +830,11 @@ TVPWindowWindow::TVPWindowWindow(tTJSNI_Window *w)
 		}
 		SDL_GL_MakeCurrent(this->window, this->context);
 #ifndef __EMSCRIPTEN__
+#ifdef WEBGL2_COMPATIBILITY
 		if (!gladLoadGLES2Loader((GLADloadproc) SDL_GL_GetProcAddress))
+#else
+		if (!gladLoadGLLoader((GLADloadproc) SDL_GL_GetProcAddress))
+#endif
 			TVPThrowExceptionMessage(TJS_W("Cannot create SDL window: %1"), ttstr("Failed to initialize GLAD"));
 #endif
     	TVPAddLog(ttstr("OpenGL Version: ") + (char*) glGetString(GL_VERSION));

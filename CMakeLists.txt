@@ -577,7 +577,18 @@ list(APPEND KRKRSDL2_LIBS
 	vorbisfile
 )
 
+set(WEBGL2_COMPATIBILITY ON)
+if(NOT (${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten"))
+set(WEBGL2_COMPATIBILITY ON)
+endif()
+if(WEBGL2_COMPATIBILITY)
 add_subdirectory(external/glad-es3.0)
+list(APPEND KRKRSDL2_DEFINITIONS
+	WEBGL2_COMPATIBILITY
+)
+else()
+add_subdirectory(external/glad-core4.6)
+endif()
 list(APPEND KRKRSDL2_LIBS
 	glad
 )

@@ -503,7 +503,7 @@ void EmotePlayer::progress(tjs_real mstime)
 #if !1
             SDL_GL_MakeCurrent(tvp_window, tvp_glContext);
 #endif
-            _currmotion->progress(0, empty, _limitArea);
+            _currmotion->progress(0, empty, _limitArea, 0, 0, 0, 1, 1);
 #if !1
             SDL_GL_MakeCurrent(tvp_window, NULL);
 #endif
@@ -529,7 +529,7 @@ void EmotePlayer::progress(tjs_real mstime)
 #if !1
             SDL_GL_MakeCurrent(tvp_window, tvp_glContext);
 #endif
-            _currmotion->progress(clockPassed, empty, _limitArea);
+            _currmotion->progress(clockPassed, empty, _limitArea, 0, 0, 0, 1, 1);
 #if !1
             SDL_GL_MakeCurrent(tvp_window, NULL);
 #endif

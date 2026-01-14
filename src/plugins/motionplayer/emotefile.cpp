@@ -7,6 +7,7 @@
 #include "UtilStreams.h"
 #include "tjsArray.h"
 #include "tjsDictionary.h"
+#include "tjsVariant.h"
 #include "DebugIntf.h"
 
 // #include "xp3filter.h"
@@ -333,41 +334,180 @@ namespace emoteplayer
 
     static GLuint emotenodeprogram = 0;
     static GLuint emotenodeVAO = 0;
+#ifdef WEBGL2_COMPATIBILITY
     static const char* vertexShaderSrc = R"(#version 300 es
             out vec2 tessCoord;
-            uniform mat4 transform;
+            uniform int surfaceCount;
+            uniform mat4 transforms[20];
+
             void main(void)
             {
                 tessCoord = vec2(gl_VertexID % 2, gl_VertexID / 2);
-                vec4 lastPt = transform * vec4(tessCoord, 0, 1);
+                vec4 lastPt = vec4(tessCoord, 0, 1);
+                for (int i = 0; i < surfaceCount; i++) {
+                    if (i > 0) {
+                        lastPt = vec4(0.5 + lastPt.x / 2.0, 1.0 - (lastPt.y / 2.0 + 0.5), 0, 0);
+                    }
+                    lastPt = transforms[i] * vec4(lastPt.xy, 0, 1);
+                }
                 gl_Position = lastPt * vec4(1.0, -1.0, 1.0, 1.0);
             }
             )";
     static const char* fragmentShaderSrc = R"(#version 300 es
-            out mediump vec4 FragColor;
-            in mediump vec2 tessCoord;
+            precision mediump float;
+            out vec4 FragColor;
+            in vec2 tessCoord;
             uniform sampler2D texture1;
             uniform bool enableMask;
-            uniform mediump vec2 viewportSize;
+            uniform vec2 viewportSize;
+            uniform bool hasInlColor;
+            uniform vec4 inlColor;
             uniform sampler2D maskTexture;
-            uniform mediump float opa;
+            uniform float opa;
             void main()
             {
-                mediump vec4 maskColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);
+                vec4 maskColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);
                 if (enableMask) {
-                    mediump vec2 normalizedCoord = gl_FragCoord.xy / viewportSize;
+                    vec2 normalizedCoord = gl_FragCoord.xy / viewportSize;
                     maskColor = texture(maskTexture, normalizedCoord);
                 }
 
-                mediump vec4 color = texture(texture1, tessCoord);
+                vec4 color = texture(texture1, tessCoord);
                 if (enableMask && maskColor.a < 0.5) {
                     discard;
                 } else {
-                    color.a = color.a * opa;
-                    FragColor = vec4(color.rgba);
+                    if (hasInlColor) {
+                        FragColor = inlColor;
+                    } else {
+                        color.a = color.a * opa;
+                        FragColor = vec4(color.rgba);
+                    }
                 }
             }
         )";
+#else
+    static const char* vertexShaderSrc = R"(
+            #version 430 core
+            void main() { }
+            )";
+    static const char* tessControlShaderSrc = R"(
+            #version 430 core
+            layout (vertices = 16) out;
+
+            void main()
+            {
+                gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
+
+                if (gl_InvocationID == 0)
+                {
+                    gl_TessLevelInner[0] = 8.0;
+                    gl_TessLevelInner[1] = 8.0;
+                    gl_TessLevelOuter[0] = 16.0;
+                    gl_TessLevelOuter[1] = 16.0;
+                    gl_TessLevelOuter[2] = 16.0;
+                    gl_TessLevelOuter[3] = 16.0;
+                }
+            }
+            )";
+    static const char* tessEvaluationShaderSrc = R"(
+            #version 430 core
+            layout(quads, equal_spacing, ccw) in;
+
+            out vec2 tessCoord;
+
+            // 最大渲染深度20，应该是够用了?
+            uniform int surfaceCount;
+            uniform mat4 transforms[20];
+            uniform vec2 controlPoints[20][16];
+
+            float B0(float t) { return (1.0 - t) * (1.0 - t) * (1.0 - t); }
+            float B1(float t) { return 3.0 * t * (1.0 - t) * (1.0 - t); }
+            float B2(float t) { return 3.0 * t * t * (1.0 - t); }
+            float B3(float t) { return t * t * t; }
+            vec2 bezierSurface(vec2 uv, int idx) {
+                float u = uv.x;
+                float v = uv.y;
+
+                vec2 result = vec2(0.0);
+
+                for (int i = 0; i < 4; i++) {
+                    for (int j = 0; j < 4; j++) {
+                        int index = i * 4 + j;
+
+                        // 计算基函数乘积
+                        float bu = 0.0;
+                        float bv = 0.0;
+
+                        if (i == 0) bu = B0(u);
+                        else if (i == 1) bu = B1(u);
+                        else if (i == 2) bu = B2(u);
+                        else if (i == 3) bu = B3(u);
+
+                        if (j == 0) bv = B0(v);
+                        else if (j == 1) bv = B1(v);
+                        else if (j == 2) bv = B2(v);
+                        else if (j == 3) bv = B3(v);
+
+                        float basis = bu * bv;
+                        vec2 controlPoint = controlPoints[idx][index];
+                        result += controlPoint * basis;
+                    }
+                }
+
+                return result;
+            }
+
+            void main(void)
+            {
+                float u = gl_TessCoord.x;
+                float v = gl_TessCoord.y;
+
+                vec4 lastPt = vec4(u, v, 0, 0);
+                for (int i = 0; i < surfaceCount; i++) {
+                    if (i > 0) {
+                        lastPt = vec4(1.0 - (lastPt.y / 2.0 + 0.5), 0.5 + lastPt.x / 2.0, 0, 0);
+                    }
+                    vec2 position = bezierSurface(lastPt.xy, i);
+                    lastPt = transforms[i] * vec4(position.xy, 0, 1);
+                }
+                gl_Position = lastPt * vec4(1.0, -1.0, 1.0, 1.0);
+
+                tessCoord = vec2(gl_TessCoord.y, gl_TessCoord.x);
+            }
+            )";
+    static const char* fragmentShaderSrc = R"(
+            #version 430 core
+            out vec4 FragColor;
+            in vec2 tessCoord;
+            uniform sampler2D texture1;
+            uniform bool enableMask = false;
+            uniform vec2 viewportSize;
+            uniform bool hasInlColor = false;
+            uniform vec4 inlColor;
+            uniform sampler2D maskTexture;
+            uniform float opa = 1.0;
+            void main()
+            {
+                vec4 maskColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);
+                if (enableMask) {
+                    vec2 normalizedCoord = gl_FragCoord.xy / viewportSize;
+                    maskColor = texture(maskTexture, normalizedCoord);
+                }
+
+                vec4 color = texture(texture1, tessCoord);
+                if (enableMask && maskColor.a < 0.5) {
+                    discard;
+                } else {
+                    if (hasInlColor) {
+                        FragColor = inlColor;
+                    } else {
+                        color.a = color.a * opa;
+                        FragColor = vec4(color.rgba);
+                    }
+                }
+            }
+        )";
+#endif
     void checkGLError(const char* location)
     {
         GLenum error = glGetError();
@@ -414,13 +554,17 @@ namespace emoteplayer
     GLuint createRenderProgram()
     {
         GLuint vs = compileShader(GL_VERTEX_SHADER, vertexShaderSrc);
-        // GLuint tcs = compileShader(GL_TESS_CONTROL_SHADER, tessControlShaderSrc);
-        // GLuint tes = compileShader(GL_TESS_EVALUATION_SHADER, tessEvaluationShaderSrc);
+#ifndef WEBGL2_COMPATIBILITY
+        GLuint tcs = compileShader(GL_TESS_CONTROL_SHADER, tessControlShaderSrc);
+        GLuint tes = compileShader(GL_TESS_EVALUATION_SHADER, tessEvaluationShaderSrc);
+#endif
         GLuint fs = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSrc);
         GLuint prog = glCreateProgram();
         glAttachShader(prog, vs);
-        // glAttachShader(prog, tcs);
-        // glAttachShader(prog, tes);
+#ifndef WEBGL2_COMPATIBILITY
+        glAttachShader(prog, tcs);
+        glAttachShader(prog, tes);
+#endif
         glAttachShader(prog, fs);
         glLinkProgram(prog);
         GLint success;
@@ -432,8 +576,10 @@ namespace emoteplayer
             TVPAddLog(ttstr("Program link error: ") + log);
         }
         glDeleteShader(vs);
-        // glDeleteShader(tcs);
-        // glDeleteShader(tes);
+#ifndef WEBGL2_COMPATIBILITY
+        glDeleteShader(tcs);
+        glDeleteShader(tes);
+#endif
         glDeleteShader(fs);
         return prog;
     }
@@ -565,6 +711,16 @@ namespace emoteplayer
             {
                 filePtr->parseReal(angle, it->second);
             }
+            it = _rootData.find("color");
+            if (it != _rootData.end())
+            {
+                hasInlColor = true;
+                filePtr->parseNumber(color, it->second);
+                inlColorA = color >> 24 & 0xFF;
+                inlColorR = color >> 16 & 0xFF;
+                inlColorG = color >> 8 & 0xFF;
+                inlColorB = color & 0xFF;
+            }
             it = _rootData.find("sx");
             if (it != _rootData.end())
             {
@@ -594,6 +750,16 @@ namespace emoteplayer
             if (it != _rootData.end())
             {
                 filePtr->parseReal(oy, it->second);
+            }
+            it = _rootData.find("fx");
+            if (it != _rootData.end())
+            {
+                filePtr->parseReal(fx, it->second);
+            }
+            it = _rootData.find("fy");
+            if (it != _rootData.end())
+            {
+                filePtr->parseReal(fy, it->second);
             }
             it = _rootData.find("zcc");
             if (it != _rootData.end())
@@ -864,6 +1030,15 @@ namespace emoteplayer
                 stencilCompositeMaskLayerList.push_back(refName);
             }
         }
+        // transformOrder
+        _tmpList.clear();
+        filePtr->parseList(_tmpList, _rootData["transformOrder"]);
+        int64_t e;
+        for (size_t i = 0; i < _tmpList.size(); i++)
+        {
+            _filePtr->parseNumber(e, _tmpList[i]);
+            if (!e) translateOrder = i;
+        }
     }
     emotenode::~emotenode()
     {
@@ -1037,7 +1212,7 @@ namespace emoteplayer
             }
         }
     }
-    void emotenode::progress(float tick, std::vector<emoteRender>& renderList, emotelimit lim)
+    void emotenode::progress(float tick, std::vector<emoteRender>& renderList, emotelimit lim, float inheritOx, float inheritOy, float inheritAngle, float inheritZx, float inheritZy, bool inheritIsNeedDraw)
     {
         // 参数化时可能改变
         currTick = tick;
@@ -1085,14 +1260,14 @@ namespace emoteplayer
         // 构建渲染方法
         renderMethod.clear();
         renderMethod = renderList;
-        if ((!isNeedDraw && (width == 0 || height == 0)) || type == 7)
+        if ((!isNeedDraw && (width == 0 || height == 0)))
         {
             originX = lim.originX;
             originY = lim.originY;
             width = lim.width;
             height = lim.height;
         }
-        else
+        else if (isNeedDraw && inheritIsNeedDraw)
         {
             // 基础参数
             if (nextframe != nullptr &&
@@ -1125,6 +1300,19 @@ namespace emoteplayer
                 // 透明度
                 currOpa = (frame->opa + (nextframe->opa - frame->opa) / (nextframe->time - frame->time) *
                                       (currTick - frame->time));
+
+                if (nextframe->hasInlColor) 
+                {
+                    if (!frame->hasInlColor) frame->hasInlColor = true;
+                    currInlColorA = (frame->inlColorA + (nextframe->inlColorA - frame->inlColorA) / (nextframe->time - frame->time) *
+                                        (currTick - frame->time));
+                    currInlColorR = (frame->inlColorR + (nextframe->inlColorR - frame->inlColorR) / (nextframe->time - frame->time) *
+                                        (currTick - frame->time));
+                    currInlColorG = (frame->inlColorG + (nextframe->inlColorG - frame->inlColorG) / (nextframe->time - frame->time) *
+                                        (currTick - frame->time));
+                    currInlColorB = (frame->inlColorB + (nextframe->inlColorB - frame->inlColorB) / (nextframe->time - frame->time) *
+                                        (currTick - frame->time));
+                }
                 // 变换参数(太sb了，感觉180才是分界点)
                 if (nextframe->angle < 180 && 
                     frame->angle > 180) // 从 小360 到大0
@@ -1189,6 +1377,10 @@ namespace emoteplayer
                 currCoordz = frame->coordZ;
                 // 透明度
                 currOpa = frame->opa;
+                currInlColorA = frame->inlColorA;
+                currInlColorR = frame->inlColorR;
+                currInlColorG = frame->inlColorG;
+                currInlColorB = frame->inlColorB;
                 // 变换参数
                 currAngle = frame->angle;
                 currSx = frame->sx, currSy = frame->sy;
@@ -1257,24 +1449,49 @@ namespace emoteplayer
             // 构建变换矩阵 平移 currCoordx/currCoordy → 缩放 zx/zy → 剪切 sx/sy → 旋转 angle
             glm::mat4 model = glm::mat4(1.0f); // 注:复合顺序是反过来的
             model = glm::translate(model, glm::vec3(currCoordx, currCoordy, 0));
+            if (!(inheritMask >> 4 & 0x1)) currAngle -= inheritAngle;
             model = glm::rotate(model, glm::radians(currAngle), glm::vec3(0.0f, 0.0f, 1.0f));
             model = glm::mat4(1.0f, currSy, 0.0f, 0.0f, currSx, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
                               0.0f, 0.0f, 0.0f, 0.0f, 1.0f) *
                     model;
-            model = glm::scale(model, glm::vec3(currZx, currZy, 1.0f));
-
-            if (isLayout) // 不绘制，不处理网格数据，只构建变换矩阵
+            if (!(inheritMask >> 5 & 0x1)) currZx /= inheritZx;
+            if (!(inheritMask >> 6 & 0x1)) currZy /= inheritZy;
+            model = glm::scale(model, glm::vec3(currZx * (frame->fx ? -1 : 1), currZy * (frame->fy ? -1 : 1), 1.0f));
+            if (!(inheritMask >> 7 & 0x1)) currOx -= inheritOx;
+            if (!(inheritMask >> 8 & 0x1)) currOy -= inheritOy;
+            if (_parent && _parent->clip) {
+                clip = _parent->clip;
+            }
+            if (strcmp(frame->src.c_str(), "clip") == 0) {
+                glm::mat4 translation = glm::mat4(1.0f);
+                translation = glm::translate(translation, glm::vec3(-currOx, -currOy, 0.0f));
+                emoteRender emt = renderMethod.back();
+                glm::mat4 transform = emt.matTrans * translation * model;
+                GLM_ASSERT_VALID(transform);
+                glm::vec4 middlePoint = transform * glm::vec4(0.0, 0.0, 0.0, 1.0);
+                int areaWidth = CLIP_AREA_WIDTH * currZx * inheritZx, areaHeight = CLIP_AREA_HEIGHT * currZy * inheritZy;
+                int startX = middlePoint.x - areaWidth / 2, startY = middlePoint.y - areaHeight / 2;
+                _clip = { startX, startY, areaWidth, areaHeight };
+                clip = &_clip;
+                currOx = 0.0; currOy = 0.0;
+                currAngle = 0.0;
+                currZx = 1.0; currZy = 1.0;
+            }
+            else if (isLayout) // 不绘制，不处理网格数据，只构建变换矩阵
             {
+                glm::mat4 translation = glm::mat4(1.0f);
+                translation = glm::translate(translation, glm::vec3(-currOx, -currOy, 0.0f));
                 if (renderMethod.size() > 0 &&
                     renderMethod.back().type == 3) // 如果上一级是layout的话，则进行合并
-                {
+                {    
                     // 构造渲染方法结构
                     emoteRender emt = renderMethod.back();
                     renderMethod.pop_back();
                     emt.type = 3;
+                    emt.opa *= currOpa;
 
                     // 更新矩阵
-                    emt.matTrans = emt.matTrans * model;
+                    emt.matTrans = emt.matTrans * translation * model;
 
                     // fbo信息
                     emt.originX = originX;
@@ -1301,7 +1518,7 @@ namespace emoteplayer
                         demuxMat =
                             glm::translate(demuxMat, glm::vec3(renderMethod.back().originX,
                                                                renderMethod.back().originY, 0.0f));
-                        emt.matTrans = demuxMat * model;
+                        emt.matTrans = demuxMat * translation * model;
                         emt.opa *= renderMethod.back().opa;
                         renderMethod.pop_back();
                         // 绘制层解耦
@@ -1316,7 +1533,7 @@ namespace emoteplayer
                     }
                     else // 正常更新矩阵
                     {
-                        emt.matTrans = model;
+                        emt.matTrans = translation * model;
                         
                     }
 
@@ -1420,14 +1637,14 @@ namespace emoteplayer
         // 传递给子类
         for (auto ch : children)
         {
-            ch->progress(tick, renderMethod, {originX, originY, width, height, lim.zMax});
+            ch->progress(tick, renderMethod, {originX, originY, width, height, lim.zMax}, currOx + inheritOx, currOy + inheritOy, currAngle + inheritAngle, currZx * inheritZx, currZy * inheritZy, isNeedDraw);
         }
 
         // 处理motion情形
         if (emot != nullptr)
         {
             emot->progress(tick + currTimeOffset, renderMethod,
-                           {originX, originY, width, height, lim.zMax});
+                           {originX, originY, width, height, lim.zMax}, currOx + inheritOx, currOy + inheritOy, currAngle + inheritAngle, currZx * inheritZx, currZy * inheritZy, isNeedDraw);
         }
     }
     void emotenode::draw(GLuint targetFbo, emotelimit lim, GLuint exFbo, GLuint exTex)
@@ -1449,14 +1666,27 @@ namespace emoteplayer
         if (!isNeedDraw || !isIcon || renderMethod.size() < 1 || removed)
             return; // 跳过无需绘制的 和 非icon的 和 无method 的节点
 
-        //if (frame != nullptr && !frame->src.empty() && ic != nullptr)
-        //{
-        //    //SDL_Log("%s with depth:%f and bm:%d with tick:%f", frame->src.c_str(), getCurrentRenderZ(), currbm, currTick);
-        //    //cv::Mat rgba(height, width, CV_8UC4, data);
-        //    //cv::Mat bgra;
-        //    //cv::cvtColor(rgba, bgra, cv::COLOR_RGBA2BGRA);
-        //    //cv::imshow(frame->src, bgra);
-        //}
+        // if (frame != nullptr && !frame->src.empty() && ic != nullptr)
+        // {
+        //     // SDL_Log("%s with depth:%f and bm:%d with tick:%f", frame->src.c_str(), getCurrentRenderZ(), currbm, currTick);
+        //     cv::Mat mat(height, width, CV_8UC4, data);
+        //     // cv::Mat bgra;
+        //     // cv::cvtColor(rgba, bgra, cv::COLOR_RGBA2BGRA);
+        //     cv::Mat dst;
+        //     auto bg = cv::Scalar(255, 255, 255);
+        //     dst.create(mat.size(), CV_8UC3);
+        //     for (int r = 0; r < mat.rows; ++r) {
+        //         const cv::Vec4b* srcPtr = mat.ptr<cv::Vec4b>(r);
+        //         cv::Vec3b* dstPtr = dst.ptr<cv::Vec3b>(r);
+        //         for (int c = 0; c < mat.cols; ++c) {
+        //             float alpha = srcPtr[c][3] / 255.0f;
+        //             for (int i = 0; i < 3; ++i) {
+        //                 dstPtr[c][i] = cv::saturate_cast<uchar>(srcPtr[c][i] * alpha + bg[i] * (1.0f - alpha));
+        //             }
+        //         }
+        //     }
+        //     cv::imshow(frame->src, dst);
+        // }
         // 提前绘制好蒙版texture
         if (renderMethod.at(0).hasStencil && exFbo != 0) // 进行Stencil过滤 不考虑复合蒙版的情况了
         {
@@ -1473,6 +1703,10 @@ namespace emoteplayer
         glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
         glUseProgram(emotenodeprogram);
         glViewport(0, 0, lim.width, lim.height);
+        if (clip) {
+            glEnable(GL_SCISSOR_TEST);
+            glScissor(clip->startX, clip->startY, clip->width, clip->height);
+        }
 #if 1
         if (renderMethod.size() > 64)
 #else
@@ -1541,7 +1775,6 @@ namespace emoteplayer
             }
         }
         // renderMethod
-#if 0//ndef __EMSCRIPTEN__
         glUniform1i(glGetUniformLocation(emotenodeprogram, "surfaceCount"), renderMethod.size());
         int idxCnt = 0;
         float totalOpa = currOpa;
@@ -1559,6 +1792,7 @@ namespace emoteplayer
             glUniformMatrix4fv(glGetUniformLocation(emotenodeprogram, uniformName), 1, GL_FALSE,
                                glm::value_ptr(renderMethod.at(i).matTrans));
             // controlPoints
+#ifndef WEBGL2_COMPATIBILITY
 #if 0
             sprintf_s(uniformName, 32, "controlPoints[%d]", idxCnt);
 #else
@@ -1570,17 +1804,9 @@ namespace emoteplayer
             else
                 glUniform2fv(glGetUniformLocation(emotenodeprogram, uniformName), 16,
                              default_control_points);
+#endif
             idxCnt++;
         }
-#else
-        float totalOpa = currOpa;
-        if (renderMethod.size() > 1) return;
-        // opa
-        totalOpa *= renderMethod.at(0).opa;
-        // transform
-        glUniformMatrix4fv(glGetUniformLocation(emotenodeprogram, "transform"), 1, GL_FALSE,
-            glm::value_ptr(renderMethod.at(0).matTrans));
-#endif
         // opa
         glUniform1f(glGetUniformLocation(emotenodeprogram, "opa"), totalOpa);
         // texture
@@ -1591,11 +1817,22 @@ namespace emoteplayer
             glUniform1i(glGetUniformLocation(emotenodeprogram, "texture1"), 0);
             glUniform1i(glGetUniformLocation(emotenodeprogram, "enableMask"), true);
             glUniform2f(glGetUniformLocation(emotenodeprogram, "viewportSize"), lim.width, lim.height);
+            if (frame->hasInlColor) {
+                glUniform1i(glGetUniformLocation(emotenodeprogram, "hasInlColor"), true);
+                float rf = static_cast<float>(currInlColorR) / 255.0f;
+                float gf = static_cast<float>(currInlColorG) / 255.0f;
+                float bf = static_cast<float>(currInlColorB) / 255.0f;
+                float af = static_cast<float>(currInlColorA) / 255.0f;
+                glUniform4f(glGetUniformLocation(emotenodeprogram, "inlColor"), bf, gf, rf, af);
+            } else glUniform1i(glGetUniformLocation(emotenodeprogram, "hasInlColor"), false);
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D, exTex);
             glUniform1i(glGetUniformLocation(emotenodeprogram, "maskTexture"), 1);
+#ifdef WEBGL2_COMPATIBILITY
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-            // glDrawArrays(GL_PATCHES, 0, 16);
+#else
+            glDrawArrays(GL_PATCHES, 0, 16);
+#endif
         }
         else
         {
@@ -1603,9 +1840,21 @@ namespace emoteplayer
             glBindTexture(GL_TEXTURE_2D, selftexture);
             glUniform1i(glGetUniformLocation(emotenodeprogram, "texture1"), 0);
             glUniform1i(glGetUniformLocation(emotenodeprogram, "enableMask"), false);
+            if (frame->hasInlColor) {
+                glUniform1i(glGetUniformLocation(emotenodeprogram, "hasInlColor"), true);
+                float rf = static_cast<float>(currInlColorR) / 255.0f;
+                float gf = static_cast<float>(currInlColorG) / 255.0f;
+                float bf = static_cast<float>(currInlColorB) / 255.0f;
+                float af = static_cast<float>(currInlColorA) / 255.0f;
+                glUniform4f(glGetUniformLocation(emotenodeprogram, "inlColor"), bf, gf, rf, af);
+            } else glUniform1i(glGetUniformLocation(emotenodeprogram, "hasInlColor"), false);
+#ifdef WEBGL2_COMPATIBILITY
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-            // glDrawArrays(GL_PATCHES, 0, 16);
+#else
+            glDrawArrays(GL_PATCHES, 0, 16);
+#endif
         }
+        if (clip) glDisable(GL_SCISSOR_TEST);
         checkGLError("draw");
 
         //if (frame != nullptr && strcmp(frame->src.c_str(), "src/tex/0066") == 0)
@@ -1782,7 +2031,7 @@ namespace emoteplayer
         }
         return nullptr;
     }
-    void emotemotion::progress(float tick, std::vector<emoteRender>& renderList, emotelimit lim)
+    void emotemotion::progress(float tick, std::vector<emoteRender>& renderList, emotelimit lim, float inheritOx, float inheritOy, float inheritAngle, float inheritZx, float inheritZy, bool inheritIsNeedDraw)
     {
         // 树状便利，构建节点的渲染结构
         for (auto ch : layer)
@@ -1795,7 +2044,7 @@ namespace emoteplayer
                 renderMethod.at(0).hasStencil = false;
                 renderMethod.at(0).layerNode.clear();
             }
-            ch->progress(tick, renderMethod, lim);
+            ch->progress(tick, renderMethod, lim, inheritAngle, inheritOx, inheritOy, inheritZx, inheritZy, inheritIsNeedDraw);
         }
     }
     void emotemotion::draw(GLuint targetFbo, emotelimit lim, GLuint exFbo, GLuint exTex)
@@ -4538,7 +4787,7 @@ namespace emoteplayer
                         {
                             if (currSize + 4 > buffSize)
                                 break;
-                            memcpy(currDst, palbuff + coloridx, 4);
+                            memcpy(currDst, palbuff + coloridx * 4, 4);
                             currDst += 4;
                             currSize += 4;
                         }
@@ -4550,7 +4799,7 @@ namespace emoteplayer
                             count = (buffSize - currSize) / 4;
                         for (int i = 0; i < count; i++)
                         {
-                            memcpy(currDst + i * 4, palbuff + (*(currPtr + i)), 4);
+                            memcpy(currDst + i * 4, palbuff + (*(currPtr + i)) * 4, 4);
                         }
                         currPtr += count;
                         currDst += count * 4;
@@ -4598,8 +4847,27 @@ namespace emoteplayer
         }
         else if (strcmp(ic->compress.c_str(), "none") == 0)
         {
-            uint32_t cpySize = std::min(chunkLengths.at(ic->pixel), buffSize);
-            memcpy(buff, srcbuff, cpySize);
+            if (ic->pal > -1)
+            {
+                uint8_t* palbuff = new uint8_t[chunkLengths.at(ic->pal)];
+                filePtr->SetPosition(_header.offsetChunkData + chunkOffsets.at(ic->pal));
+                filePtr->ReadBuffer(palbuff, chunkLengths.at(ic->pal));
+
+                uint8_t* currPtr = srcbuff;
+                uint8_t* endPtr = currPtr + chunkLengths.at(ic->pixel);
+                uint8_t* currDst = buff;
+                while (currPtr < endPtr)
+                {   
+                    memcpy(currDst, palbuff + (*currPtr) * 4, 4);
+                    currPtr++;
+                    currDst += 4;
+                }
+            }
+            else
+            {
+                uint32_t cpySize = std::min(chunkLengths.at(ic->pixel), buffSize);
+                memcpy(buff, srcbuff, cpySize);
+            }
         }
         else
         {

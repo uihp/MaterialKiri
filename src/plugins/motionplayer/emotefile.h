@@ -18,6 +18,9 @@
 
 #include "psbfile/psbData.h"
 
+#define CLIP_AREA_WIDTH 32
+#define CLIP_AREA_HEIGHT 32
+
 namespace emoteplayer
 {
 struct emotelimit // 区域限制
@@ -27,6 +30,14 @@ struct emotelimit // 区域限制
     float width = 0.0f;
     float height = 0.0f;
     float zMax = 0.0f;
+};
+
+struct emoteclip
+{
+    int startX = 0;
+    int startY = 0;
+    int width = 0;
+    int height = 0;
 };
 
 class emotenode;
@@ -73,7 +84,13 @@ public:
     //content
     bool hasContent = false;
     double coordX = 0.0, coordY = 0.0, coordZ = 0.0, angle = 0.0, sx = 0.0, sy = 0.0, zx = 1.0,
-           zy = 1.0, ox = 0.0, oy = 0.0, opa = 1.0;
+           zy = 1.0, ox = 0.0, oy = 0.0, fx = 0, fy = 0, opa = 1.0;
+    bool hasInlColor = false;
+    int64_t color = 0;
+    uint8_t inlColorR = -1;
+    uint8_t inlColorG = -1;
+    uint8_t inlColorB = -1;
+    uint8_t inlColorA = -1;
     double timeOffset = 0.0;
     int64_t mask = 0;
     int64_t bm = 0;
@@ -124,7 +141,7 @@ public:
     ~emotenode();
 
     void checkDrawStatus(float tick, std::vector<emoteRender>& renderList, emotelimit lim);
-    void progress(float tick, std::vector<emoteRender>& renderList, emotelimit lim);
+    void progress(float tick, std::vector<emoteRender>& renderList, emotelimit lim, float inheritOx, float inheritOy, float inheritAngle, float inheritZx, float inheritZy, bool inheritIsNeedDraw = true);
     void draw(GLuint targetFbo, emotelimit lim, GLuint exFbo, GLuint exTex);
 
     // once
@@ -165,8 +182,11 @@ private:
     bool isNeedDraw = false; // 是否需要绘制
     bool isIcon = false; // 是否需要实际绘制(只有icon需要，诸如 blank 只起到布局和变形作用)
     bool isLayout = false; // layout/motion与blank的区别，前者无法提供网格变形，无缓存画布，无透明度，变化矩阵需要合并到下一级
+    uint8_t translateOrder = 0;
     emoteframe* frame = nullptr;
     emoteframe* nextframe = nullptr;
+    emoteclip _clip;
+    emoteclip* clip = nullptr;
 
     // runtime
     float currTick = 0;
@@ -175,9 +195,13 @@ private:
     float currCoordy = 0;
     float currCoordz = 0;
     float currOpa = 1.0;
+    uint8_t currInlColorR = 0;
+    uint8_t currInlColorG = 0;
+    uint8_t currInlColorB = 0;
+    uint8_t currInlColorA = 0;
     float currAngle = 0.0; //变换参数 旋转angle   错切sx/sy   缩放zx/zy   
     float currSx = 0.0, currSy = 0.0;
-    float currZx = 0.0, currZy = 0.0;
+    float currZx = 1.0, currZy = 1.0;
     float currOx = 0.0, currOy = 0.0;
     float currTimeOffset = 0.0; // motion引用偏移值
     bool isNeedBp = false;
@@ -196,7 +220,7 @@ public:
 
     float getTickByIdx(int32_t parameterIdx);
     emotenode* getNodeByName(const std::string& name);
-    void progress(float tick, std::vector<emoteRender>& renderList, emotelimit lim);
+    void progress(float tick, std::vector<emoteRender>& renderList, emotelimit lim, float inheritOx, float inheritOy, float inheritAngle, float inheritZx, float inheritZy, bool inheritIsNeedDraw = true);
     void draw(GLuint targetFbo, emotelimit lim, GLuint exFbo, GLuint exTex);
 
     int64_t lastTime;
