@@ -266,8 +266,7 @@ list(APPEND KRKRSDL2_LDFLAGS
 endif()
 if(${KRKRSDL2_EMSCRIPTEN_ENABLE_SOURCE_MAPS} EQUAL ON)
 list(APPEND KRKRSDL2_LDFLAGS
-	-g4
-	--source-map-base http://127.0.0.1:8080/
+	-gsource-map
 )
 endif()
 endif()
@@ -800,14 +799,14 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 install(TARGETS ${KRKRSDL2_NAME} DESTINATION bin)
 endif()
 
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten")
-configure_file(
-	src/config/index.html.in
-	index.html
-	@ONLY
-	NEWLINE_STYLE UNIX
-)
-endif()
+# if(${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten")
+# configure_file(
+# 	src/config/index.html.in
+# 	index.html
+# 	@ONLY
+# 	NEWLINE_STYLE UNIX
+# )
+# endif()
 
 get_directory_property(HAS_PARENT_SCOPE PARENT_DIRECTORY)
 if(HAS_PARENT_SCOPE)
