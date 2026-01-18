@@ -15,8 +15,8 @@
 
 #ifdef _WIN32
 // Also defined in StorageImpl.h
-void TVPLoadArchiveSPI(void *inst);
-void TVPUnloadArchiveSPI(void *inst);
+void TVPLoadArchiveSPI(SDL_SharedObject *inst);
+void TVPUnloadArchiveSPI(SDL_SharedObject *inst);
 #endif
 class tTVPArchive;
 tTVPArchive * TVPOpenSusieArchive(const ttstr & name);

@@ -51,7 +51,7 @@
 #include "TVPScreen.h"
 #endif
 #include "TickCount.h"
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include <errno.h>
 #ifdef __APPLE__
 #include <sys/types.h>
@@ -1283,12 +1283,12 @@ void TVPBeforeSystemInit()
 	}
 #endif
 	// First, try SDL_GetBasePath
-	char *base_path = SDL_GetBasePath();
+	const char *base_path = SDL_GetBasePath();
 	std::string base_path_utf8;
 	if (base_path)
 	{
 		base_path_utf8 = base_path;
-		SDL_free(base_path);
+		// SDL_free(base_path);
 	}
 #ifdef __ANDROID__
 	// Special case for Android when SDL_GetBasePath returns NULL.

@@ -4,7 +4,7 @@
 #ifndef OpenGLScreenH
 #define OpenGLScreenH
 
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 #include "OpenGLHeader.h"
 #include "ComplexRect.h"

@@ -6,7 +6,7 @@
 #include <random>
 
 #ifdef __EMSCRIPTEN__
-#include <SDL_opengles2.h>
+#include <SDL3/SDL_opengles2.h>
 #define GL_BGRA GL_BGRA_EXT
 #else
 #include <glad/glad.h>

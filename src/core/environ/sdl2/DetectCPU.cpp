@@ -24,7 +24,7 @@
 #include <intrin.h>
 #endif
 #include "MsgIntf.h"
-#include <SDL_platform.h>
+#include <SDL3/SDL_platform.h>
 
 #if 0
 #ifdef _MSC_VER

@@ -13,6 +13,7 @@
 #define GraphicsLoaderImplH
 
 #include "GraphicsLoaderIntf.h"
+#include <SDL3/SDL.h>
 
 #ifdef _WIN32
 //---------------------------------------------------------------------------
@@ -35,7 +36,7 @@ protected:
 
 	std::vector<ttstr> Extensions;
 
-	tTVPSusiePlugin(void *inst, const char *api);
+	tTVPSusiePlugin(SDL_SharedObject *inst, const char *api);
 	virtual ~tTVPSusiePlugin();
 
 	static int PASCAL ProgressCallback(int nNum,int nDenom,long lData) { return 0; }
@@ -53,8 +54,8 @@ public:
 // Susie Plug-in management functions
 // ( support of SPI for archive files is in StorageImpl.cpp )
 //---------------------------------------------------------------------------
-extern void TVPLoadPictureSPI(void *inst, tTVPBMPAlphaType alphatype = batMulAlpha);
-extern void TVPUnloadPictureSPI(void *inst);
+extern void TVPLoadPictureSPI(SDL_SharedObject *inst, tTVPBMPAlphaType alphatype = batMulAlpha);
+extern void TVPUnloadPictureSPI(SDL_SharedObject *inst);
 //---------------------------------------------------------------------------
 #endif
 

@@ -938,7 +938,7 @@ tTVPLocalFileStream::tTVPLocalFileStream(const ttstr &origname,
 	TVPUtf16ToUtf8( filename, localname.AsStdString() );
 
 retry:
-	io_handle = SDL_RWFromFile(filename.c_str(), mode);
+	io_handle = SDL_IOFromFile(filename.c_str(), mode);
 	if(io_handle == nullptr)
 	{
 		if(trycount == 0 && access == TJS_BS_WRITE)
@@ -977,7 +977,7 @@ tTVPLocalFileStream::~tTVPLocalFileStream()
 {
 	if (io_handle != nullptr)
 	{
-		SDL_RWclose(io_handle);
+		SDL_CloseIO(io_handle);
 	}
 
 	// push current tick as an environment noise
@@ -993,16 +993,16 @@ tTVPLocalFileStream::~tTVPLocalFileStream()
 //---------------------------------------------------------------------------
 tjs_uint64 TJS_INTF_METHOD tTVPLocalFileStream::Seek(tjs_int64 offset, tjs_int whence)
 {
-	int dwmm;
+	SDL_IOWhence dwmm;
 	switch(whence)
 	{
-	case TJS_BS_SEEK_SET:	dwmm = RW_SEEK_SET;	break;
-	case TJS_BS_SEEK_CUR:	dwmm = RW_SEEK_CUR;	break;
-	case TJS_BS_SEEK_END:	dwmm = RW_SEEK_END;	break;
-	default:				dwmm = RW_SEEK_SET;	break; // may be enough
+	case TJS_BS_SEEK_SET:	dwmm = SDL_IO_SEEK_SET;	break;
+	case TJS_BS_SEEK_CUR:	dwmm = SDL_IO_SEEK_CUR;	break;
+	case TJS_BS_SEEK_END:	dwmm = SDL_IO_SEEK_END;	break;
+	default:				dwmm = SDL_IO_SEEK_SET;	break; // may be enough
 	}
 
-	Sint64 low = SDL_RWseek(io_handle, offset, dwmm);
+	Sint64 low = SDL_SeekIO(io_handle, offset, dwmm);
 	if (low < 0)
 	{
 		TVPThrowExceptionMessage(TVPSeekError);
@@ -1012,14 +1012,14 @@ tjs_uint64 TJS_INTF_METHOD tTVPLocalFileStream::Seek(tjs_int64 offset, tjs_int w
 //---------------------------------------------------------------------------
 tjs_uint TJS_INTF_METHOD tTVPLocalFileStream::Read(void *buffer, tjs_uint read_size)
 {
-	size_t ret = SDL_RWread(io_handle, buffer, 1, read_size);
+	size_t ret = SDL_ReadIO(io_handle, buffer, read_size);
 	return (tjs_uint)ret;
 }
 //---------------------------------------------------------------------------
 tjs_uint TJS_INTF_METHOD tTVPLocalFileStream::Write(const void *buffer, tjs_uint write_size)
 {
 	written = true;
-	size_t ret = SDL_RWwrite(io_handle, buffer, 1, write_size);
+	size_t ret = SDL_WriteIO(io_handle, buffer, write_size);
 	return (tjs_uint)ret;
 }
 //---------------------------------------------------------------------------
@@ -1036,7 +1036,7 @@ tjs_uint64 TJS_INTF_METHOD tTVPLocalFileStream::GetSize()
 	Seek(oldpos, TJS_BS_SEEK_SET);
 	return retpos;
 #endif
-	Sint64 low = SDL_RWsize(io_handle);
+	Sint64 low = SDL_GetIOSize(io_handle);
 	if (low < 0)
 	{
 		TVPThrowExceptionMessage(TVPSeekError);
@@ -1435,7 +1435,7 @@ static void TVPInitPluginSearchPathOptions()
 
 	tTJSVariant val;
 	tjs_string searchpath;
-	char *searchpath_cstr = SDL_getenv("KRKRSDL2_PATH");
+	const char *searchpath_cstr = SDL_getenv("KRKRSDL2_PATH");
 	if (searchpath_cstr != NULL)
 	{
 		std::string searchpath_utf8 = searchpath_cstr;

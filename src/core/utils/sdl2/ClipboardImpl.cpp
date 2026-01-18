@@ -13,7 +13,7 @@
 #include "Exception.h"
 #include "ClipboardIntf.h"
 #include "CharacterSet.h"
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 //---------------------------------------------------------------------------
 // clipboard related functions
@@ -22,7 +22,7 @@ bool TVPClipboardHasFormat(tTVPClipboardFormat format)
 {
 	if (format == cbfText)
 	{
-		return SDL_HasClipboardText() == SDL_TRUE;
+		return SDL_HasClipboardText() == true;
 	}
 	return false;
 }

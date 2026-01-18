@@ -61,7 +61,7 @@ class tTVPSusieArchivePlugin : public tTVPSusiePlugin
 	tjs_int LockCount;
 
 public:
-	tTVPSusieArchivePlugin(void *inst);
+	tTVPSusieArchivePlugin(SDL_SharedObject *inst);
 	~tTVPSusieArchivePlugin();
 
 	void Lock();
@@ -79,7 +79,7 @@ public:
 	tTJSCriticalSection & GetCS() { return CS; }
 };
 //---------------------------------------------------------------------------
-tTVPSusieArchivePlugin::tTVPSusieArchivePlugin(void *inst) :
+tTVPSusieArchivePlugin::tTVPSusieArchivePlugin(SDL_SharedObject *inst) :
 	tTVPSusiePlugin(inst, "00AM")
 {
 	LockCount = 0;
@@ -249,7 +249,7 @@ static tTVPAtExit TVPDestroySusiePluginListAtExit
 //---------------------------------------------------------------------------
 // TVPLoadArchiveSPI/TVPUnloadArchiveSPI : load/unload archive spi
 //---------------------------------------------------------------------------
-void TVPLoadArchiveSPI(void *inst)
+void TVPLoadArchiveSPI(SDL_SharedObject *inst)
 {
 	// load specified Susie plug-in.
 	std::vector<tTVPSusieArchivePlugin*>::iterator i;
@@ -264,7 +264,7 @@ void TVPLoadArchiveSPI(void *inst)
 	TVPSusiePluginVector.push_back(spi);
 }
 //---------------------------------------------------------------------------
-void TVPUnloadArchiveSPI(void *inst)
+void TVPUnloadArchiveSPI(SDL_SharedObject *inst)
 {
 	// unload specified Susie plug-in from system.
 	std::vector<tTVPSusieArchivePlugin*>::iterator i;

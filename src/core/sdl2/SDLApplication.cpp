@@ -23,10 +23,11 @@
 #if 1 //def KRKRZ_ENABLE_CANVAS
 #include "OpenGLScreenSDL2.h"
 #endif
-#ifdef _WIN32
-#include <SDL_syswm.h>
-#endif
-#include <SDL.h>
+// #ifdef _WIN32
+// #include <SDL_syswm.h>
+// #endif
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_joystick.h>
 #ifndef __EMSCRIPTEN__
 #include <glad/glad.h>
 #endif
@@ -67,18 +68,19 @@ extern void TVPLoadMessage();
 
 class TVPWindowWindow;
 static TVPWindowWindow *_lastWindowWindow, *_currentWindowWindow;
-static SDL_GameController **sdl_controllers = nullptr;
+static SDL_Gamepad **sdl_controllers = nullptr;
 static int sdl_controller_num = 0;
 
-#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
-static void process_events();
-#else
+// #if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+// static void process_events();
+// #else
+// static bool process_events();
+// #endif
 static bool process_events();
-#endif
 
-#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
-static int sdl_event_watch(void *userdata, SDL_Event *in_event);
-#endif
+// #if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+// static int sdl_event_watch(void *userdata, SDL_Event *in_event);
+// #endif
 
 static void refresh_controllers()
 {
@@ -88,9 +90,9 @@ static void refresh_controllers()
 		return;
 	}
 #endif
-	if (!SDL_WasInit(SDL_INIT_GAMECONTROLLER))
+	if (!SDL_WasInit(SDL_INIT_GAMEPAD))
 	{
-		SDL_Init(SDL_INIT_GAMECONTROLLER);
+		SDL_Init(SDL_INIT_GAMEPAD);
 	}
 	if (sdl_controller_num && sdl_controllers)
 	{
@@ -98,7 +100,7 @@ static void refresh_controllers()
 		{
 			if (sdl_controllers[i])
 			{
-				SDL_GameControllerClose(sdl_controllers[i]);
+				SDL_CloseGamepad(sdl_controllers[i]);
 				sdl_controllers[i] = nullptr;
 			}
 		}
@@ -106,10 +108,10 @@ static void refresh_controllers()
 		SDL_free(sdl_controllers);
 		sdl_controllers = nullptr;
 	}
-	sdl_controller_num = SDL_NumJoysticks();
+	SDL_GetJoysticks(&sdl_controller_num);
 	if (sdl_controller_num)
 	{
-		sdl_controllers = (SDL_GameController**)SDL_malloc(sizeof(SDL_GameController*) * sdl_controller_num);
+		sdl_controllers = (SDL_Gamepad**)SDL_malloc(sizeof(SDL_Gamepad*) * sdl_controller_num);
 		if (!sdl_controllers)
 		{
 			sdl_controller_num = 0;
@@ -118,9 +120,9 @@ static void refresh_controllers()
 		}
 		for (int i = 0; i < sdl_controller_num; i += 1)
 		{
-			if (SDL_IsGameController(i))
+			if (SDL_IsGamepad(i))
 			{
-				sdl_controllers[i] = SDL_GameControllerOpen(i);
+				sdl_controllers[i] = SDL_OpenGamepad(i);
 				if (!sdl_controllers[i])
 				{
 					TVPAddLog(ttstr("Could not open controller: ") + ttstr(SDL_GetError()));
@@ -134,20 +136,20 @@ static Uint8 vk_key_to_sdl_gamecontrollerbutton(tjs_uint key)
 {
 	switch (key)
 	{
-		case VK_PAD1: return SDL_CONTROLLER_BUTTON_A;
-		case VK_PAD2: return SDL_CONTROLLER_BUTTON_B;
-		case VK_PAD3: return SDL_CONTROLLER_BUTTON_X;
-		case VK_PAD4: return SDL_CONTROLLER_BUTTON_Y;
-		case VK_PAD7: return SDL_CONTROLLER_BUTTON_BACK;
-		case VK_PAD8: return SDL_CONTROLLER_BUTTON_START;
-		case VK_PAD9: return SDL_CONTROLLER_BUTTON_LEFTSTICK;
-		case VK_PAD10: return SDL_CONTROLLER_BUTTON_RIGHTSTICK;
-		case VK_PAD5: return SDL_CONTROLLER_BUTTON_LEFTSHOULDER;
-		case VK_PAD6: return SDL_CONTROLLER_BUTTON_RIGHTSHOULDER;
-		case VK_PADUP: return SDL_CONTROLLER_BUTTON_DPAD_UP;
-		case VK_PADDOWN: return SDL_CONTROLLER_BUTTON_DPAD_DOWN;
-		case VK_PADLEFT: return SDL_CONTROLLER_BUTTON_DPAD_LEFT;
-		case VK_PADRIGHT: return SDL_CONTROLLER_BUTTON_DPAD_RIGHT;
+		case VK_PAD1: return SDL_GAMEPAD_BUTTON_SOUTH;
+		case VK_PAD2: return SDL_GAMEPAD_BUTTON_EAST;
+		case VK_PAD3: return SDL_GAMEPAD_BUTTON_WEST;
+		case VK_PAD4: return SDL_GAMEPAD_BUTTON_NORTH;
+		case VK_PAD7: return SDL_GAMEPAD_BUTTON_BACK;
+		case VK_PAD8: return SDL_GAMEPAD_BUTTON_START;
+		case VK_PAD9: return SDL_GAMEPAD_BUTTON_LEFT_STICK;
+		case VK_PAD10: return SDL_GAMEPAD_BUTTON_RIGHT_STICK;
+		case VK_PAD5: return SDL_GAMEPAD_BUTTON_LEFT_SHOULDER;
+		case VK_PAD6: return SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER;
+		case VK_PADUP: return SDL_GAMEPAD_BUTTON_DPAD_UP;
+		case VK_PADDOWN: return SDL_GAMEPAD_BUTTON_DPAD_DOWN;
+		case VK_PADLEFT: return SDL_GAMEPAD_BUTTON_DPAD_LEFT;
+		case VK_PADRIGHT: return SDL_GAMEPAD_BUTTON_DPAD_RIGHT;
 		default: return 0;
 	}
 }
@@ -156,20 +158,20 @@ static tjs_uint sdl_gamecontrollerbutton_to_vk_key(Uint8 key)
 {
 	switch (key)
 	{
-		case SDL_CONTROLLER_BUTTON_A: return VK_PAD1;
-		case SDL_CONTROLLER_BUTTON_B: return VK_PAD2;
-		case SDL_CONTROLLER_BUTTON_X: return VK_PAD3;
-		case SDL_CONTROLLER_BUTTON_Y: return VK_PAD4;
-		case SDL_CONTROLLER_BUTTON_BACK: return VK_PAD7;
-		case SDL_CONTROLLER_BUTTON_START: return VK_PAD8;
-		case SDL_CONTROLLER_BUTTON_LEFTSTICK: return VK_PAD9;
-		case SDL_CONTROLLER_BUTTON_RIGHTSTICK: return VK_PAD10;
-		case SDL_CONTROLLER_BUTTON_LEFTSHOULDER: return VK_PAD5;
-		case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER: return VK_PAD6;
-		case SDL_CONTROLLER_BUTTON_DPAD_UP: return VK_PADUP;
-		case SDL_CONTROLLER_BUTTON_DPAD_DOWN: return VK_PADDOWN;
-		case SDL_CONTROLLER_BUTTON_DPAD_LEFT: return VK_PADLEFT;
-		case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: return VK_PADRIGHT;
+		case SDL_GAMEPAD_BUTTON_SOUTH: return VK_PAD1;
+		case SDL_GAMEPAD_BUTTON_EAST: return VK_PAD2;
+		case SDL_GAMEPAD_BUTTON_WEST: return VK_PAD3;
+		case SDL_GAMEPAD_BUTTON_NORTH: return VK_PAD4;
+		case SDL_GAMEPAD_BUTTON_BACK: return VK_PAD7;
+		case SDL_GAMEPAD_BUTTON_START: return VK_PAD8;
+		case SDL_GAMEPAD_BUTTON_LEFT_STICK: return VK_PAD9;
+		case SDL_GAMEPAD_BUTTON_RIGHT_STICK: return VK_PAD10;
+		case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: return VK_PAD5;
+		case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: return VK_PAD6;
+		case SDL_GAMEPAD_BUTTON_DPAD_UP: return VK_PADUP;
+		case SDL_GAMEPAD_BUTTON_DPAD_DOWN: return VK_PADDOWN;
+		case SDL_GAMEPAD_BUTTON_DPAD_LEFT: return VK_PADLEFT;
+		case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: return VK_PADRIGHT;
 		default: return 0;
 	}
 }
@@ -187,7 +189,7 @@ static tjs_uint sdl_gamecontrollerbutton_to_vk_key(Uint8 key)
 #define MK_CONTROL 8
 #define MK_ALT (0x20)
 
-static SDL_Cursor *sdl_system_cursors[SDL_NUM_SYSTEM_CURSORS] = {0};
+static SDL_Cursor *sdl_system_cursors[SDL_SYSTEM_CURSOR_COUNT] = {0};
 
 static SDL_Keycode vk_key_to_sdl_key(tjs_uint key)
 {
@@ -226,32 +228,32 @@ static SDL_Keycode vk_key_to_sdl_key(tjs_uint key)
 		case VK_7: return SDLK_7;
 		case VK_8: return SDLK_8;
 		case VK_9: return SDLK_9;
-		case VK_A: return SDLK_a;
-		case VK_B: return SDLK_b;
-		case VK_C: return SDLK_c;
-		case VK_D: return SDLK_d;
-		case VK_E: return SDLK_e;
-		case VK_F: return SDLK_f;
-		case VK_G: return SDLK_g;
-		case VK_H: return SDLK_h;
-		case VK_I: return SDLK_i;
-		case VK_J: return SDLK_j;
-		case VK_K: return SDLK_k;
-		case VK_L: return SDLK_l;
-		case VK_M: return SDLK_m;
-		case VK_N: return SDLK_n;
-		case VK_O: return SDLK_o;
-		case VK_P: return SDLK_p;
-		case VK_Q: return SDLK_q;
-		case VK_R: return SDLK_r;
-		case VK_S: return SDLK_s;
-		case VK_T: return SDLK_t;
-		case VK_U: return SDLK_u;
-		case VK_V: return SDLK_v;
-		case VK_W: return SDLK_w;
-		case VK_X: return SDLK_x;
-		case VK_Y: return SDLK_y;
-		case VK_Z: return SDLK_z;
+		case VK_A: return SDLK_A;
+		case VK_B: return SDLK_B;
+		case VK_C: return SDLK_C;
+		case VK_D: return SDLK_D;
+		case VK_E: return SDLK_E;
+		case VK_F: return SDLK_F;
+		case VK_G: return SDLK_G;
+		case VK_H: return SDLK_H;
+		case VK_I: return SDLK_I;
+		case VK_J: return SDLK_J;
+		case VK_K: return SDLK_K;
+		case VK_L: return SDLK_L;
+		case VK_M: return SDLK_M;
+		case VK_N: return SDLK_N;
+		case VK_O: return SDLK_O;
+		case VK_P: return SDLK_P;
+		case VK_Q: return SDLK_Q;
+		case VK_R: return SDLK_R;
+		case VK_S: return SDLK_S;
+		case VK_T: return SDLK_T;
+		case VK_U: return SDLK_U;
+		case VK_V: return SDLK_V;
+		case VK_W: return SDLK_W;
+		case VK_X: return SDLK_X;
+		case VK_Y: return SDLK_Y;
+		case VK_Z: return SDLK_Z;
 		case VK_LWIN: return SDLK_LGUI;
 		case VK_RWIN: return SDLK_RGUI;
 		case VK_SLEEP: return SDLK_SLEEP;
@@ -312,12 +314,12 @@ static SDL_Keycode vk_key_to_sdl_key(tjs_uint key)
 		case VK_VOLUME_MUTE: return SDLK_MUTE;
 		case VK_VOLUME_DOWN: return SDLK_VOLUMEDOWN;
 		case VK_VOLUME_UP: return SDLK_VOLUMEUP;
-		case VK_MEDIA_NEXT_TRACK: return SDLK_AUDIONEXT;
-		case VK_MEDIA_PREV_TRACK: return SDLK_AUDIOPREV;
-		case VK_MEDIA_STOP: return SDLK_AUDIOSTOP;
-		case VK_MEDIA_PLAY_PAUSE: return SDLK_AUDIOPLAY;
-		case VK_LAUNCH_MAIL: return SDLK_MAIL;
-		case VK_LAUNCH_MEDIA_SELECT: return SDLK_MEDIASELECT;
+		case VK_MEDIA_NEXT_TRACK: return SDLK_MEDIA_NEXT_TRACK;
+		case VK_MEDIA_PREV_TRACK: return SDLK_MEDIA_PREVIOUS_TRACK;
+		case VK_MEDIA_STOP: return SDLK_MEDIA_STOP;
+		case VK_MEDIA_PLAY_PAUSE: return SDLK_MEDIA_PLAY;
+		// case VK_LAUNCH_MAIL: return SDLK_MAIL;
+		case VK_LAUNCH_MEDIA_SELECT: return SDLK_MEDIA_SELECT;
 		default: return 0;
 	}
 }
@@ -359,32 +361,32 @@ static tjs_uint sdl_key_to_vk_key(SDL_Keycode key)
 		case SDLK_7: return VK_7;
 		case SDLK_8: return VK_8;
 		case SDLK_9: return VK_9;
-		case SDLK_a: return VK_A;
-		case SDLK_b: return VK_B;
-		case SDLK_c: return VK_C;
-		case SDLK_d: return VK_D;
-		case SDLK_e: return VK_E;
-		case SDLK_f: return VK_F;
-		case SDLK_g: return VK_G;
-		case SDLK_h: return VK_H;
-		case SDLK_i: return VK_I;
-		case SDLK_j: return VK_J;
-		case SDLK_k: return VK_K;
-		case SDLK_l: return VK_L;
-		case SDLK_m: return VK_M;
-		case SDLK_n: return VK_N;
-		case SDLK_o: return VK_O;
-		case SDLK_p: return VK_P;
-		case SDLK_q: return VK_Q;
-		case SDLK_r: return VK_R;
-		case SDLK_s: return VK_S;
-		case SDLK_t: return VK_T;
-		case SDLK_u: return VK_U;
-		case SDLK_v: return VK_V;
-		case SDLK_w: return VK_W;
-		case SDLK_x: return VK_X;
-		case SDLK_y: return VK_Y;
-		case SDLK_z: return VK_Z;
+		case SDLK_A: return VK_A;
+		case SDLK_B: return VK_B;
+		case SDLK_C: return VK_C;
+		case SDLK_D: return VK_D;
+		case SDLK_E: return VK_E;
+		case SDLK_F: return VK_F;
+		case SDLK_G: return VK_G;
+		case SDLK_H: return VK_H;
+		case SDLK_I: return VK_I;
+		case SDLK_J: return VK_J;
+		case SDLK_K: return VK_K;
+		case SDLK_L: return VK_L;
+		case SDLK_M: return VK_M;
+		case SDLK_N: return VK_N;
+		case SDLK_O: return VK_O;
+		case SDLK_P: return VK_P;
+		case SDLK_Q: return VK_Q;
+		case SDLK_R: return VK_R;
+		case SDLK_S: return VK_S;
+		case SDLK_T: return VK_T;
+		case SDLK_U: return VK_U;
+		case SDLK_V: return VK_V;
+		case SDLK_W: return VK_W;
+		case SDLK_X: return VK_X;
+		case SDLK_Y: return VK_Y;
+		case SDLK_Z: return VK_Z;
 		case SDLK_LGUI: return VK_LWIN;
 		case SDLK_RGUI: return VK_RWIN;
 		case SDLK_SLEEP: return VK_SLEEP;
@@ -446,12 +448,12 @@ static tjs_uint sdl_key_to_vk_key(SDL_Keycode key)
 		case SDLK_MUTE: return VK_VOLUME_MUTE;
 		case SDLK_VOLUMEDOWN: return VK_VOLUME_DOWN;
 		case SDLK_VOLUMEUP: return VK_VOLUME_UP;
-		case SDLK_AUDIONEXT: return VK_MEDIA_NEXT_TRACK;
-		case SDLK_AUDIOPREV: return VK_MEDIA_PREV_TRACK;
-		case SDLK_AUDIOSTOP: return VK_MEDIA_STOP;
-		case SDLK_AUDIOPLAY: return VK_MEDIA_PLAY_PAUSE;
-		case SDLK_MAIL: return VK_LAUNCH_MAIL;
-		case SDLK_MEDIASELECT: return VK_LAUNCH_MEDIA_SELECT;
+		case SDLK_MEDIA_NEXT_TRACK: return VK_MEDIA_NEXT_TRACK;
+		case SDLK_MEDIA_PREVIOUS_TRACK: return VK_MEDIA_PREV_TRACK;
+		case SDLK_MEDIA_STOP: return VK_MEDIA_STOP;
+		case SDLK_MEDIA_PLAY: return VK_MEDIA_PLAY_PAUSE;
+		// case SDLK_MAIL: return VK_LAUNCH_MAIL;
+		case SDLK_MEDIA_SELECT: return VK_LAUNCH_MEDIA_SELECT;
 		default: return 0;
 	}
 }
@@ -513,7 +515,7 @@ protected:
 	bool needsGraphicUpdate = false;
 	bool isBeingDeleted = false;
 	bool cursorTemporaryHidden = false;
-	char *imeCompositionStr;
+	const char *imeCompositionStr;
 	size_t imeCompositionCursor;
 	size_t imeCompositionLen;
 	size_t imeCompositionSelection;
@@ -782,9 +784,9 @@ TVPWindowWindow::TVPWindowWindow(tTJSNI_Window *w)
 
 #ifdef KRKRSDL2_WINDOW_SIZE_IS_LAYER_SIZE
 	window_flags |= SDL_WINDOW_RESIZABLE;
-	window_flags |= SDL_WINDOW_ALLOW_HIGHDPI;
+	window_flags |= SDL_WINDOW_HIGH_PIXEL_DENSITY;
 #ifndef __EMSCRIPTEN__
-	window_flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+	window_flags |= SDL_WINDOW_FULLSCREEN;
 #endif
 	new_window_w = 0;
 	new_window_h = 0;
@@ -794,7 +796,7 @@ TVPWindowWindow::TVPWindowWindow(tTJSNI_Window *w)
 	window_flags |= SDL_WINDOW_HIDDEN;
 #endif
 
-	this->window = SDL_CreateWindow("krkrsdl2", new_window_x, new_window_y, new_window_w, new_window_h, window_flags);
+	this->window = SDL_CreateWindow("krkrsdl2", new_window_w, new_window_h, window_flags);
 	if (!this->window)
 	{
 		TVPThrowExceptionMessage(TJS_W("Cannot create SDL window: %1"), ttstr(SDL_GetError()));
@@ -850,19 +852,19 @@ TVPWindowWindow::TVPWindowWindow(tTJSNI_Window *w)
 	if (TVPIsEnableDrawDevice())
 #endif
 	{
-#if !defined(__EMSCRIPTEN__) || (defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__))
-		this->renderer = SDL_CreateRenderer(this->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+#if 1 //!defined(__EMSCRIPTEN__) || (defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__))
+		this->renderer = SDL_CreateRenderer(this->window, NULL);
 		if (!this->renderer)
 		{
 			TVPAddLog(ttstr("Cannot create SDL renderer: ") + ttstr(SDL_GetError()));
 		}
 #endif
 
-#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
-		// move the event watch to after the SDL_RendererEventWatch to ensure transformed values are received
-		SDL_DelEventWatch(sdl_event_watch, nullptr);
-		SDL_AddEventWatch(sdl_event_watch, nullptr);
-#endif
+// #if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+// 		// move the event watch to after the SDL_RendererEventWatch to ensure transformed values are received
+// 		SDL_RemoveEventWatch(sdl_event_watch, nullptr);
+// 		SDL_AddEventWatch(sdl_event_watch, nullptr);
+// #endif
 
 		this->bitmapCompletion = new TVPSDLBitmapCompletion();
 		if (!this->renderer)
@@ -916,7 +918,7 @@ TVPWindowWindow::~TVPWindowWindow()
 #if 1 //def KRKRZ_ENABLE_CANVAS
 	if (this->context)
 	{
-		SDL_GL_DeleteContext(this->context);
+		SDL_GL_DestroyContext(this->context);
 		this->context = nullptr;
 	}
 #endif
@@ -924,7 +926,7 @@ TVPWindowWindow::~TVPWindowWindow()
 	{
 		SDL_DestroyTexture(this->texture);
 		this->texture = nullptr;
-		SDL_FreeSurface(this->surface);
+		SDL_DestroySurface(this->surface);
 		this->surface = nullptr;
 	}
 	if (this->renderer)
@@ -968,7 +970,7 @@ void TVPWindowWindow::SetPaintBoxSize(tjs_int w, tjs_int h)
 			SDL_DestroyTexture(this->texture);
 			this->texture = nullptr;
 		}
-		this->texture = SDL_CreateTexture(this->renderer, SDL_PIXELFORMAT_RGB888, SDL_TEXTUREACCESS_STREAMING, w, h);
+		this->texture = SDL_CreateTexture(this->renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, w, h);
 		if (!this->texture)
 		{
 			TVPThrowExceptionMessage(TJS_W("Cannot create texture texture: %1"), ttstr(SDL_GetError()));
@@ -976,10 +978,10 @@ void TVPWindowWindow::SetPaintBoxSize(tjs_int w, tjs_int h)
 		this->bitmapCompletion->surface = nullptr;
 		if (this->surface)
 		{
-			SDL_FreeSurface(this->surface);
+			SDL_DestroySurface(this->surface);
 			this->surface = nullptr;
 		}
-		this->surface = SDL_CreateRGBSurface(0, w, h, 32, 0x00ff0000, 0x0000ff00, 0x000000ff, 0);
+		this->surface = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_XRGB8888);
 		if (!this->surface)
 		{
 			TVPThrowExceptionMessage(TJS_W("Cannot create surface: %1"), ttstr(SDL_GetError()));
@@ -998,7 +1000,7 @@ void TVPWindowWindow::SetPaintBoxSize(tjs_int w, tjs_int h)
 #ifdef KRKRSDL2_ENABLE_ZOOM
 		this->UpdateActualZoom();
 #else
-		SDL_RenderSetLogicalSize(this->renderer, w, h);
+		SDL_SetRenderLogicalPresentation(this->renderer, w, h, SDL_LOGICAL_PRESENTATION_LETTERBOX);
 #endif
 	}
 	if (this->TJSNativeInstance)
@@ -1055,24 +1057,24 @@ void TVPWindowWindow::TranslateDrawAreaToWindow(int &x, int &y)
 
 bool TVPWindowWindow::GetFormEnabled()
 {
-	return (!!this->window && !!(SDL_GetWindowFlags(this->window) & SDL_WINDOW_SHOWN));
+	return !!this->window;
 }
 void TVPWindowWindow::SetDefaultMouseCursor()
 {
 	if (!sdl_system_cursors[0])
 	{
-		for (int i = 0; i < SDL_NUM_SYSTEM_CURSORS; i += 1)
+		for (int i = 0; i < SDL_SYSTEM_CURSOR_COUNT; i += 1)
 		{
 			sdl_system_cursors[i] = SDL_CreateSystemCursor((SDL_SystemCursor)i);
 		}
 	}
-	SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_ARROW]);
+	SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_DEFAULT]);
 }
 void TVPWindowWindow::SetMouseCursor(tjs_int handle)
 {
 	if (!sdl_system_cursors[0])
 	{
-		for (int i = 0; i < SDL_NUM_SYSTEM_CURSORS; i += 1)
+		for (int i = 0; i < SDL_SYSTEM_CURSOR_COUNT; i += 1)
 		{
 			sdl_system_cursors[i] = SDL_CreateSystemCursor((SDL_SystemCursor)i);
 		}
@@ -1080,57 +1082,58 @@ void TVPWindowWindow::SetMouseCursor(tjs_int handle)
 	switch (handle)
 	{
 		case -2: // crArrow
-			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_ARROW]);
+			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_DEFAULT]);
 			break;
 		case -3: // crCross
 			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_CROSSHAIR]);
 			break;
 		case -4: // crIBeam
-			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_IBEAM]);
+			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_TEXT]);
 			break;
 		case -5: // crSize
-			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_SIZEALL]);
+			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_MOVE]);
 			break;
 		case -6: // crSizeNESW
-			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_SIZENESW]);
+			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_NESW_RESIZE]);
 			break;
 		case -7: // crSizeNS
-			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_SIZENS]);
+			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_NS_RESIZE]);
 			break;
 		case -8: // crSizeNWSE
-			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_SIZENWSE]);
+			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_NWSE_RESIZE]);
 			break;
 		case -9: // crSizeWE
-			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_SIZEWE]);
+			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_EW_RESIZE]);
 			break;
 		case -11: // crHourGlass
 			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_WAIT]);
 			break;
 		case -18: // crNo
-			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_NO]);
+			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_NOT_ALLOWED]);
 			break;
 		case -19: // crAppStart
-			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_WAITARROW]);
+			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_PROGRESS]);
 			break;
 		case -21: // crHandPoint
-			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_HAND]);
+			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_POINTER]);
 			break;
 		case -22: // crSizeAll
-			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_SIZEALL]);
+			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_MOVE]);
 			break;
 		default:
-			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_ARROW]);
+			SDL_SetCursor(sdl_system_cursors[SDL_SYSTEM_CURSOR_DEFAULT]);
 			break;
 	}
 }
 void TVPWindowWindow::SetMouseCursorState(tTVPMouseCursorState mcs)
 {
 	this->cursorTemporaryHidden = (mcs == mcsTempHidden);
-	SDL_ShowCursor((mcs == mcsVisible) ? SDL_ENABLE : SDL_DISABLE);
+	if (mcs == mcsVisible) SDL_ShowCursor();
+	else SDL_HideCursor();
 }
 tTVPMouseCursorState TVPWindowWindow::GetMouseCursorState() const
 {
-	return this->cursorTemporaryHidden ? mcsTempHidden : ((SDL_ShowCursor(SDL_QUERY) == SDL_ENABLE) ? mcsVisible : mcsHidden);
+	return this->cursorTemporaryHidden ? mcsTempHidden : (SDL_CursorVisible() ? mcsVisible : mcsHidden);
 }
 void TVPWindowWindow::HideMouseCursor()
 {
@@ -1151,9 +1154,11 @@ void TVPWindowWindow::GetCursorPos(tjs_int &x, tjs_int &y)
 	{
 		return;
 	}
-	tjs_int new_x = 0;
-	tjs_int new_y = 0;
-	SDL_GetMouseState(&new_x, &new_y);
+	float new_xf = 0;
+	float new_yf = 0;
+	SDL_GetMouseState(&new_xf, &new_yf);
+	int new_x = new_xf;
+	int new_y = new_yf;
 	if (this->renderer)
 	{
 #ifdef KRKRSDL2_ENABLE_ZOOM
@@ -1163,10 +1168,10 @@ void TVPWindowWindow::GetCursorPos(tjs_int &x, tjs_int &y)
 		SDL_Rect viewport;
 		int window_w, window_h;
 		int output_w, output_h;
-		SDL_RenderGetScale(this->renderer, &scale_x, &scale_y);
-		SDL_RenderGetViewport(this->renderer, &viewport);
+		SDL_GetRenderScale(this->renderer, &scale_x, &scale_y);
+		SDL_GetRenderViewport(this->renderer, &viewport);
 		SDL_GetWindowSize(this->window, &window_w, &window_h);
-		SDL_GetRendererOutputSize(this->renderer, &output_w, &output_h);
+		SDL_GetCurrentRenderOutputSize(this->renderer, &output_w, &output_h);
 		float dpi_scale_x = (float)window_w / output_w;
 		float dpi_scale_y = (float)window_h / output_h;
 		new_x -= (int)(viewport.x * dpi_scale_x);
@@ -1197,10 +1202,10 @@ void TVPWindowWindow::SetCursorPos(tjs_int x, tjs_int y)
 		SDL_Rect viewport;
 		int window_w, window_h;
 		int output_w, output_h;
-		SDL_RenderGetScale(this->renderer, &scale_x, &scale_y);
-		SDL_RenderGetViewport(this->renderer, &viewport);
+		SDL_GetRenderScale(this->renderer, &scale_x, &scale_y);
+		SDL_GetRenderViewport(this->renderer, &viewport);
 		SDL_GetWindowSize(this->window, &window_w, &window_h);
-		SDL_GetRendererOutputSize(this->renderer, &output_w, &output_h);
+		SDL_GetCurrentRenderOutputSize(this->renderer, &output_w, &output_h);
 		float dpi_scale_x = (float)window_w / output_w;
 		float dpi_scale_y = (float)window_h / output_h;
 		new_x = (int)(new_x * (scale_x * dpi_scale_x));
@@ -1222,7 +1227,7 @@ void TVPWindowWindow::SetAttentionPoint(tjs_int left, tjs_int top, const struct 
 	this->attentionPointRect.w = 0;
 	this->attentionPointRect.h = font->Height;
 	this->TranslateDrawAreaToWindow(this->attentionPointRect.x, this->attentionPointRect.y);
-	SDL_SetTextInputRect(&this->attentionPointRect);
+	SDL_SetTextInputArea(window, &this->attentionPointRect, 0);
 }
 void TVPWindowWindow::BringToFront()
 {
@@ -1264,7 +1269,7 @@ void TVPWindowWindow::ShowWindowAsModal()
 }
 bool TVPWindowWindow::GetVisible()
 {
-	return (!this->visibilityHasInitialized) ? this->isVisible : (!!this->window && !!(SDL_GetWindowFlags(this->window) & SDL_WINDOW_SHOWN));
+	return (!this->visibilityHasInitialized) ? this->isVisible : (!!this->window);
 }
 void TVPWindowWindow::SetVisible(bool visible)
 {
@@ -1304,7 +1309,7 @@ void TVPWindowWindow::SetFullScreenMode(bool fullscreen)
 #ifndef KRKRSDL2_WINDOW_SIZE_IS_LAYER_SIZE
 	if (this->window)
 	{
-		SDL_SetWindowFullscreen(this->window, fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+		SDL_SetWindowFullscreen(this->window, fullscreen);
 	}
 	this->UpdateWindow(utNormal);
 #endif
@@ -1312,7 +1317,7 @@ void TVPWindowWindow::SetFullScreenMode(bool fullscreen)
 bool TVPWindowWindow::GetFullScreenMode()
 {
 #ifndef KRKRSDL2_WINDOW_SIZE_IS_LAYER_SIZE
-	return !!this->window && !!(SDL_GetWindowFlags(this->window) & (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP));
+	return !!this->window && !!(SDL_GetWindowFlags(this->window) & SDL_WINDOW_FULLSCREEN);
 #else
 	return false;
 #endif
@@ -1322,8 +1327,8 @@ void TVPWindowWindow::SetBorderStyle(tTVPBorderStyle bs)
 #ifndef KRKRSDL2_WINDOW_SIZE_IS_LAYER_SIZE
 	if (this->window)
 	{
-		SDL_SetWindowBordered(this->window, (bs == bsNone) ? SDL_FALSE : SDL_TRUE);
-		SDL_SetWindowResizable(this->window, (bs == bsSizeable || bs == bsSizeToolWin) ? SDL_TRUE : SDL_FALSE);
+		SDL_SetWindowBordered(this->window, (bs == bsNone) ? false : true);
+		SDL_SetWindowResizable(this->window, (bs == bsSizeable || bs == bsSizeToolWin) ? true : false);
 	}
 #endif
 }
@@ -1461,9 +1466,10 @@ void TVPWindowWindow::GetSize(tjs_int &w, tjs_int &h)
 	if (this->renderer)
 	{
 #ifdef KRKRSDL2_ENABLE_ZOOM
-		SDL_GetRendererOutputSize(this->renderer, &w, &h);
+		SDL_GetCurrentRenderOutputSize(this->renderer, &w, &h);
 #else
-		SDL_RenderGetLogicalSize(this->renderer, &w, &h);
+		SDL_RendererLogicalPresentation p;
+		SDL_GetRenderLogicalPresentation(this->renderer, &w, &h, &p);
 #endif
 		return;
 	}
@@ -1482,9 +1488,10 @@ tjs_int TVPWindowWindow::GetWidth() const
 	{
 		int h;
 #ifdef KRKRSDL2_ENABLE_ZOOM
-		SDL_GetRendererOutputSize(this->renderer, &w, &h);
+		SDL_GetCurrentRenderOutputSize(this->renderer, &w, &h);
 #else
-		SDL_RenderGetLogicalSize(this->renderer, &w, &h);
+		SDL_RendererLogicalPresentation p;
+		SDL_GetRenderLogicalPresentation(this->renderer, &w, &h, &p);
 #endif
 	}
 	return w;
@@ -1503,9 +1510,10 @@ tjs_int TVPWindowWindow::GetHeight() const
 	{
 		int w;
 #ifdef KRKRSDL2_ENABLE_ZOOM
-		SDL_GetRendererOutputSize(this->renderer, &w, &h);
+		SDL_GetCurrentRenderOutputSize(this->renderer, &w, &h);
 #else
-		SDL_RenderGetLogicalSize(this->renderer, &w, &h);
+		SDL_RendererLogicalPresentation p;
+		SDL_GetRenderLogicalPresentation(this->renderer, &w, &h, &p);
 #endif
 	}
 	return h;
@@ -1558,9 +1566,10 @@ tjs_int TVPWindowWindow::GetMinWidth()
 	{
 		int h;
 #ifdef KRKRSDL2_ENABLE_ZOOM
-		SDL_GetRendererOutputSize(this->renderer, &w, &h);
+		SDL_GetCurrentRenderOutputSize(this->renderer, &w, &h);
 #else
-		SDL_RenderGetLogicalSize(this->renderer, &w, &h);
+		SDL_RendererLogicalPresentation p;
+		SDL_GetRenderLogicalPresentation(this->renderer, &w, &h, &p);
 #endif
 	}
 	return w;
@@ -1579,9 +1588,10 @@ tjs_int TVPWindowWindow::GetMaxWidth()
 	{
 		int h;
 #ifdef KRKRSDL2_ENABLE_ZOOM
-		SDL_GetRendererOutputSize(this->renderer, &w, &h);
+		SDL_GetCurrentRenderOutputSize(this->renderer, &w, &h);
 #else
-		SDL_RenderGetLogicalSize(this->renderer, &w, &h);
+		SDL_RendererLogicalPresentation p;
+		SDL_GetRenderLogicalPresentation(this->renderer, &w, &h, &p);
 #endif
 	}
 	return w;
@@ -1600,9 +1610,10 @@ tjs_int TVPWindowWindow::GetMinHeight()
 	{
 		int w;
 #ifdef KRKRSDL2_ENABLE_ZOOM
-		SDL_GetRendererOutputSize(this->renderer, &w, &h);
+		SDL_GetCurrentRenderOutputSize(this->renderer, &w, &h);
 #else
-		SDL_RenderGetLogicalSize(this->renderer, &w, &h);
+		SDL_RendererLogicalPresentation p;
+		SDL_GetRenderLogicalPresentation(this->renderer, &w, &h, &p);
 #endif
 	}
 	return h;
@@ -1621,9 +1632,10 @@ tjs_int TVPWindowWindow::GetMaxHeight()
 	{
 		int w;
 #ifdef KRKRSDL2_ENABLE_ZOOM
-		SDL_GetRendererOutputSize(this->renderer, &w, &h);
+		SDL_GetCurrentRenderOutputSize(this->renderer, &w, &h);
 #else
-		SDL_RenderGetLogicalSize(this->renderer, &w, &h);
+		SDL_RendererLogicalPresentation p;
+		SDL_GetRenderLogicalPresentation(this->renderer, &w, &h, &p);
 #endif
 	}
 	return h;
@@ -1690,7 +1702,7 @@ void TVPWindowWindow::GetDrawableSize(tjs_int &w, tjs_int &h)
 	h = 0;
 	if (this->context)
 	{
-		SDL_GL_GetDrawableSize(this->window, &w, &h);
+		SDL_GetWindowSizeInPixels(this->window, &w, &h);
 	}
 }
 void TVPWindowWindow::Swap()
@@ -1722,76 +1734,80 @@ void TVPWindowWindow::TickBeat()
 	{
 		if (this->bitmapCompletion)
 		{
-			SDL_Rect rect;
-			rect.x = this->bitmapCompletion->update_rect.left;
-			rect.y = this->bitmapCompletion->update_rect.top;
-			rect.w = this->bitmapCompletion->update_rect.get_width();
-			rect.h = this->bitmapCompletion->update_rect.get_height();
+			int rect_x = this->bitmapCompletion->update_rect.left;
+			int rect_y = this->bitmapCompletion->update_rect.top;
+			int rect_w = this->bitmapCompletion->update_rect.get_width();
+			int rect_h = this->bitmapCompletion->update_rect.get_height();
 			if (this->renderer)
 			{
 #if defined(KRKRSDL2_ENABLE_ZOOM) || defined(KRKRSDL2_RENDERER_FULL_UPDATES)
 				SDL_RenderFillRect(this->renderer, nullptr);
 #else
 				SDL_Rect logical_rect;
-				SDL_RenderGetLogicalSize(this->renderer, &(logical_rect.w), &(logical_rect.h));
-				if (logical_rect.w == rect.w && logical_rect.h == rect.h)
+				SDL_RendererLogicalPresentation p;
+						SDL_GetRenderLogicalPresentation(this->renderer, &(logical_rect.w), &(logical_rect.h), &p);
+				if (logical_rect.w == rect_w && logical_rect.h == rect_h)
 				{
 					// Clear extra artifacts
-					SDL_RenderSetLogicalSize(this->renderer, 0, 0);
+					SDL_SetRenderLogicalPresentation(this->renderer, 0, 0, SDL_LOGICAL_PRESENTATION_LETTERBOX);
 					SDL_RenderFillRect(this->renderer, nullptr);
-					SDL_RenderSetLogicalSize(this->renderer, logical_rect.w, logical_rect.h);
+					SDL_SetRenderLogicalPresentation(this->renderer, logical_rect.w, logical_rect.h, SDL_LOGICAL_PRESENTATION_LETTERBOX);
 				}
 #endif
 				if (this->texture)
 				{
 					if (this->surface)
 					{
-						if ((rect.w + rect.x) > this->surface->w)
+						if ((rect_w + rect_x) > this->surface->w)
 						{
-							rect.w = this->surface->w;
+							rect_w = this->surface->w;
 						}
-						if ((rect.h + rect.y) > this->surface->h)
+						if ((rect_h + rect_y) > this->surface->h)
 						{
-							rect.h = this->surface->h;
+							rect_h = this->surface->h;
 						}
+						const SDL_Rect rect = {rect_x,rect_y,rect_w,rect_h};
 						SDL_UpdateTexture(this->texture, &rect, this->surface->pixels, this->surface->pitch);
 					}
 #if defined(KRKRSDL2_ENABLE_ZOOM)
-					SDL_Rect destrect;
+					SDL_FRect destrect;
 					destrect.x = this->LastSentDrawDeviceDestRect.left;
 					destrect.y = this->LastSentDrawDeviceDestRect.top;
 					destrect.w = this->LastSentDrawDeviceDestRect.get_width();
 					destrect.h = this->LastSentDrawDeviceDestRect.get_height();
-					SDL_Rect srcrect;
+					SDL_FRect srcrect;
 					srcrect.x = 0;
 					srcrect.y = 0;
 					srcrect.w = this->GetInnerWidth();
 					srcrect.h = this->GetInnerHeight();
-					SDL_RenderCopy(this->renderer, this->texture, &srcrect, &destrect);
+					SDL_RenderTexture(this->renderer, this->texture, &srcrect, &destrect);
 #elif defined(KRKRSDL2_RENDERER_FULL_UPDATES)
-					SDL_RenderCopy(this->renderer, this->texture, nullptr, nullptr);
+					SDL_RenderTexture(this->renderer, this->texture, nullptr, nullptr);
 #else
-					SDL_RenderCopy(this->renderer, this->texture, &rect, &rect);
+					const SDL_FRect rect = {rect_x,rect_y,rect_w,rect_h};
+					SDL_RenderTexture(this->renderer, this->texture, &rect, &rect);
 #endif
 				}
 				SDL_RenderPresent(this->renderer);
 #if !defined(KRKRSDL2_ENABLE_ZOOM) && !defined(KRKRSDL2_RENDERER_FULL_UPDATES)
-				if (logical_rect.w == rect.w && logical_rect.h == rect.h)
+				if (logical_rect.w == rect_w && logical_rect.h == rect_h)
 				{
 					// Clear extra artifacts (for the back buffer)
-					SDL_RenderSetLogicalSize(this->renderer, 0, 0);
+					SDL_SetRenderLogicalPresentation(this->renderer, 0, 0, SDL_LOGICAL_PRESENTATION_LETTERBOX);
 					SDL_RenderFillRect(this->renderer, nullptr);
-					SDL_RenderSetLogicalSize(this->renderer, logical_rect.w, logical_rect.h);
+					SDL_SetRenderLogicalPresentation(this->renderer, logical_rect.w, logical_rect.h, SDL_LOGICAL_PRESENTATION_LETTERBOX);
 				}
 				if (this->texture)
 				{
-					SDL_RenderCopy(this->renderer, this->texture, &rect, &rect);
+					const SDL_FRect rect = {rect_x,rect_y,rect_w,rect_h};
+					SDL_RenderTexture(this->renderer, this->texture, &rect, &rect);
 				}
 #endif
 				this->hasDrawn = true;
 			}
 			else if (this->window && this->surface)
 			{
+				const SDL_Rect rect = {rect_x,rect_y,rect_w,rect_h};
 				SDL_UpdateWindowSurfaceRects(this->window, &rect, 1);
 				this->hasDrawn = true;
 			}
@@ -1983,10 +1999,10 @@ void TVPWindowWindow::SetImeMode(tTVPImeMode mode)
 	{
 		this->ResetImeMode();
 	}
-	else if (!SDL_IsTextInputActive())
+	else if (!SDL_TextInputActive(window))
 	{
-		SDL_SetTextInputRect(&this->attentionPointRect);
-		SDL_StartTextInput();
+		SDL_SetTextInputArea(window, &this->attentionPointRect, 0);
+		SDL_StartTextInput(window);
 	}
 }
 void TVPWindowWindow::ResetImeMode()
@@ -1999,10 +2015,10 @@ void TVPWindowWindow::ResetImeMode()
 	this->attentionPointRect.y = 0;
 	this->attentionPointRect.w = 0;
 	this->attentionPointRect.h = 0;
-	if (this->window && SDL_IsTextInputActive())
+	if (this->window && SDL_TextInputActive(window))
 	{
-		SDL_SetTextInputRect(&this->attentionPointRect);
-		SDL_StopTextInput();
+		SDL_SetTextInputArea(window, &this->attentionPointRect, 0);
+		SDL_StopTextInput(window);
 	}
 }
 void TVPWindowWindow::UpdateWindow(tTVPUpdateType type)
@@ -2021,8 +2037,9 @@ void TVPWindowWindow::UpdateWindow(tTVPUpdateType type)
 	r.clear();
 	if (this->renderer)
 	{
-		SDL_RenderGetLogicalSize(this->renderer, &(r.right), &(r.bottom));
-		SDL_RenderSetLogicalSize(this->renderer, r.right, r.bottom);
+		SDL_RendererLogicalPresentation p;
+				SDL_GetRenderLogicalPresentation(this->renderer, &(r.right), &(r.bottom), &p);
+		SDL_SetRenderLogicalPresentation(this->renderer, r.right, r.bottom, p);
 	}
 	else if (this->window)
 	{
@@ -2078,7 +2095,7 @@ void TVPWindowWindow::UpdateActualZoom(void)
 #endif
 	// determine fullscreen zoom factor and client size
 	int sb_w, sb_h, zoom_d, zoom_n, output_w, output_h;
-	SDL_GetRendererOutputSize(this->renderer, &output_w, &output_h);
+	SDL_GetCurrentRenderOutputSize(this->renderer, &output_w, &output_h);
 
 	float layer_aspect = (float)this->GetInnerWidth() / this->GetInnerHeight();
 	float output_aspect = (float)output_w / output_h;
@@ -2363,9 +2380,10 @@ bool TVPWindowWindow::InternalDeliverMessageToReceiver(tTVPWindowMessage &msg)
 
 HWND TVPWindowWindow::GetHandle() const
 {
-	SDL_SysWMinfo syswminfo;
-	SDL_VERSION(&syswminfo.version);
-	return SDL_GetWindowWMInfo(this->window, &syswminfo) ? syswminfo.info.win.window : nullptr;
+	// SDL_SysWMinfo syswminfo;
+	// SDL_VERSION(&syswminfo.version);
+	// return SDL_GetWindowWMInfo(this->window, &syswminfo) ? syswminfo.info.win.window : nullptr;
+	return (HWND)SDL_GetPointerProperty(SDL_GetWindowProperties(this->window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
 }
 #endif
 
@@ -2377,33 +2395,48 @@ bool TVPWindowWindow::should_try_parent_window(SDL_Event event)
 		uint32_t windowID = SDL_GetWindowID(this->window);
 		switch (event.type)
 		{
-			case SDL_DROPFILE:
-			case SDL_DROPTEXT:
-			case SDL_DROPBEGIN:
-			case SDL_DROPCOMPLETE:
+			case SDL_EVENT_DROP_FILE:
+			case SDL_EVENT_DROP_TEXT:
+			case SDL_EVENT_DROP_BEGIN:
+			case SDL_EVENT_DROP_COMPLETE:
 				tryParentWindow = event.drop.windowID != windowID;
 				break;
-			case SDL_KEYDOWN:
-			case SDL_KEYUP:
+			case SDL_EVENT_KEY_DOWN:
+			case SDL_EVENT_KEY_UP:
 				tryParentWindow = event.key.windowID != windowID;
 				break;
-			case SDL_MOUSEMOTION:
+			case SDL_EVENT_MOUSE_MOTION:
 				tryParentWindow = event.motion.windowID != windowID;
 				break;
-			case SDL_MOUSEBUTTONDOWN:
-			case SDL_MOUSEBUTTONUP:
+			case SDL_EVENT_MOUSE_BUTTON_DOWN:
+			case SDL_EVENT_MOUSE_BUTTON_UP:
 				tryParentWindow = event.button.windowID != windowID;
 				break;
-			case SDL_MOUSEWHEEL:
+			case SDL_EVENT_MOUSE_WHEEL:
 				tryParentWindow = event.wheel.windowID != windowID;
 				break;
-			case SDL_TEXTEDITING:
+			case SDL_EVENT_TEXT_EDITING:
 				tryParentWindow = event.edit.windowID != windowID;
 				break;
-			case SDL_TEXTINPUT:
+			case SDL_EVENT_TEXT_INPUT:
 				tryParentWindow = event.text.windowID != windowID;
 				break;
-			case SDL_WINDOWEVENT:
+			case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+			case SDL_EVENT_WINDOW_DISPLAY_CHANGED:
+			case SDL_EVENT_WINDOW_MOUSE_ENTER:
+			case SDL_EVENT_WINDOW_EXPOSED:
+			case SDL_EVENT_WINDOW_FOCUS_GAINED:
+			case SDL_EVENT_WINDOW_FOCUS_LOST:
+			case SDL_EVENT_WINDOW_HIDDEN:
+			case SDL_EVENT_WINDOW_HIT_TEST:
+			case SDL_EVENT_WINDOW_ICCPROF_CHANGED:
+			case SDL_EVENT_WINDOW_MOUSE_LEAVE:
+			case SDL_EVENT_WINDOW_MAXIMIZED:
+			case SDL_EVENT_WINDOW_MINIMIZED:
+			case SDL_EVENT_WINDOW_MOVED:
+			case SDL_EVENT_WINDOW_RESIZED:
+			case SDL_EVENT_WINDOW_RESTORED:
+			case SDL_EVENT_WINDOW_SHOWN:
 				tryParentWindow = event.window.windowID != windowID;
 				break;
 			default:
@@ -2436,10 +2469,10 @@ void TVPWindowWindow::window_receive_event(SDL_Event event)
 		{
 			switch (event.type)
 			{
-				case SDL_TEXTINPUT:
-				case SDL_TEXTEDITING:
+				case SDL_EVENT_TEXT_INPUT:
+				case SDL_EVENT_TEXT_EDITING:
 				{
-					if (!SDL_IsTextInputActive())
+					if (!SDL_TextInputActive(window))
 					{
 						return;
 					}
@@ -2469,12 +2502,12 @@ void TVPWindowWindow::window_receive_event(SDL_Event event)
 					}
 					switch (event.type)
 					{
-						case SDL_TEXTINPUT:
+						case SDL_EVENT_TEXT_INPUT:
 							this->imeCompositionStr = event.text.text;
 							this->imeCompositionCursor = 0;
 							this->imeCompositionSelection = 0;
 							break;
-						case SDL_TEXTEDITING:
+						case SDL_EVENT_TEXT_EDITING:
 							this->imeCompositionStr = event.edit.text;
 							this->imeCompositionCursor = event.edit.start;
 							this->imeCompositionSelection = event.edit.length;
@@ -2503,7 +2536,7 @@ void TVPWindowWindow::window_receive_event(SDL_Event event)
 						this->imeCompositionCursor = 0;
 						this->imeCompositionSelection = 0;
 					}
-					if (event.type == SDL_TEXTEDITING)
+					if (event.type == SDL_EVENT_TEXT_EDITING)
 					{
 						for (size_t i = 0; i < this->imeCompositionLen - this->imeCompositionCursor; i += 1)
 						{
@@ -2524,14 +2557,14 @@ void TVPWindowWindow::window_receive_event(SDL_Event event)
 #endif
 						}
 					}
-					if (event.type == SDL_TEXTINPUT)
+					if (event.type == SDL_EVENT_TEXT_INPUT)
 					{
 						this->imeCompositionStr = nullptr;
 						this->imeCompositionLen = 0;
 					}
 					return;
 				}
-				case SDL_DROPBEGIN:
+				case SDL_EVENT_DROP_BEGIN:
 				{
 					if (!this->fileDropArray)
 					{
@@ -2539,7 +2572,7 @@ void TVPWindowWindow::window_receive_event(SDL_Event event)
 					}
 					return;
 				}
-				case SDL_DROPCOMPLETE:
+				case SDL_EVENT_DROP_COMPLETE:
 				{
 					if (this->fileDropArray)
 					{
@@ -2551,15 +2584,15 @@ void TVPWindowWindow::window_receive_event(SDL_Event event)
 					}
 					return;
 				}
-				case SDL_DROPFILE:
-				case SDL_DROPTEXT:
+				case SDL_EVENT_DROP_FILE:
+				case SDL_EVENT_DROP_TEXT:
 				{
-					if (event.drop.file)
+					if (event.drop.data)
 					{
-						std::string f_utf8 = event.drop.file;
+						std::string f_utf8 = event.drop.data;
 						tjs_string f_utf16;
 						TVPUtf8ToUtf16( f_utf16, f_utf8 );
-						SDL_free(event.drop.file);
+						// SDL_free(event.drop.file);
 						if (TVPIsExistentStorageNoSearch(f_utf16))
 						{
 							tTJSVariant val = TVPNormalizeStorageName(ttstr(f_utf16));
@@ -2582,72 +2615,62 @@ void TVPWindowWindow::window_receive_event(SDL_Event event)
 					}
 					return;
 				}
-				case SDL_CONTROLLERDEVICEADDED:
-				case SDL_CONTROLLERDEVICEREMOVED:
-				case SDL_CONTROLLERDEVICEREMAPPED:
+				case SDL_EVENT_GAMEPAD_ADDED:
+				case SDL_EVENT_GAMEPAD_REMOVED:
+				case SDL_EVENT_GAMEPAD_REMAPPED:
 				{
 					refresh_controllers();
 					return;
 				}
-				case SDL_WINDOWEVENT:
+				case SDL_EVENT_WINDOW_EXPOSED:
 				{
-					switch (event.window.event)
-					{
-						case SDL_WINDOWEVENT_EXPOSED:
-						{
-							this->UpdateWindow(utNormal);
-							return;
-						}
-						case SDL_WINDOWEVENT_MINIMIZED:
-						case SDL_WINDOWEVENT_MAXIMIZED:
-						case SDL_WINDOWEVENT_RESTORED:
-						case SDL_WINDOWEVENT_RESIZED:
-						case SDL_WINDOWEVENT_SIZE_CHANGED:
-						{
-#ifdef KRKRSDL2_ENABLE_ZOOM
-							this->UpdateActualZoom();
-#else
-							this->UpdateWindow(utNormal);
-#endif
-							TVPPostInputEvent(new tTVPOnResizeInputEvent(this->TJSNativeInstance), TVP_EPT_REMOVE_POST);
-							return;
-						}
-						case SDL_WINDOWEVENT_ENTER:
-						{
-							TVPPostInputEvent(new tTVPOnMouseEnterInputEvent(this->TJSNativeInstance));
-							return;
-						}
-						case SDL_WINDOWEVENT_LEAVE:
-						{
-							TVPPostInputEvent(new tTVPOnMouseOutOfWindowInputEvent(this->TJSNativeInstance));
-							TVPPostInputEvent(new tTVPOnMouseLeaveInputEvent(this->TJSNativeInstance));
-							return;
-						}
-						case SDL_WINDOWEVENT_FOCUS_GAINED:
-						case SDL_WINDOWEVENT_FOCUS_LOST:
-						{
-							TVPPostInputEvent(new tTVPOnWindowActivateEvent(this->TJSNativeInstance, event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED), TVP_EPT_REMOVE_POST);
-							return;
-						}
-						case SDL_WINDOWEVENT_CLOSE:
-						{
-							TVPPostInputEvent(new tTVPOnCloseInputEvent(this->TJSNativeInstance));
-							return;
-						}
-						default:
-						{
-							return;
-						}
-					}
+					this->UpdateWindow(utNormal);
+					return;
 				}
-				case SDL_QUIT:
+				case SDL_EVENT_WINDOW_MINIMIZED:
+				case SDL_EVENT_WINDOW_MAXIMIZED:
+				case SDL_EVENT_WINDOW_RESTORED:
+				case SDL_EVENT_WINDOW_RESIZED:
+				case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+				{
+#ifdef KRKRSDL2_ENABLE_ZOOM
+					this->UpdateActualZoom();
+#else
+					this->UpdateWindow(utNormal);
+#endif
+					TVPPostInputEvent(new tTVPOnResizeInputEvent(this->TJSNativeInstance), TVP_EPT_REMOVE_POST);
+					return;
+				}
+				case SDL_EVENT_WINDOW_MOUSE_ENTER:
+				{
+					TVPPostInputEvent(new tTVPOnMouseEnterInputEvent(this->TJSNativeInstance));
+					return;
+				}
+				case SDL_EVENT_WINDOW_MOUSE_LEAVE:
+				{
+					TVPPostInputEvent(new tTVPOnMouseOutOfWindowInputEvent(this->TJSNativeInstance));
+					TVPPostInputEvent(new tTVPOnMouseLeaveInputEvent(this->TJSNativeInstance));
+					return;
+				}
+				case SDL_EVENT_WINDOW_FOCUS_GAINED:
+				case SDL_EVENT_WINDOW_FOCUS_LOST:
+				{
+					TVPPostInputEvent(new tTVPOnWindowActivateEvent(this->TJSNativeInstance, event.type == SDL_EVENT_WINDOW_FOCUS_GAINED), TVP_EPT_REMOVE_POST);
+					return;
+				}
+				case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+				{
+					TVPPostInputEvent(new tTVPOnCloseInputEvent(this->TJSNativeInstance));
+					return;
+				}
+				case SDL_EVENT_QUIT:
 				{
 					TVPPostInputEvent(new tTVPOnCloseInputEvent(this->TJSNativeInstance));
 					return;
 				}
 				default:
 				{
-#if !(defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__))
+#if 1 //!(defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__))
 					this->window_receive_event_input(event);
 #endif
 					return;
@@ -2680,7 +2703,7 @@ bool TVPWindowWindow::window_receive_event_input(SDL_Event event)
 		{
 			switch (event.type)
 			{
-				case SDL_MOUSEMOTION:
+				case SDL_EVENT_MOUSE_MOTION:
 				{
 					this->RestoreMouseCursor();
 					this->lastMouseX = event.motion.x;
@@ -2689,10 +2712,10 @@ bool TVPWindowWindow::window_receive_event_input(SDL_Event event)
 					TVPPostInputEvent(new tTVPOnMouseMoveInputEvent(this->TJSNativeInstance, this->lastMouseX, this->lastMouseY, s));
 					return true;
 				}
-				case SDL_MOUSEBUTTONDOWN:
-				case SDL_MOUSEBUTTONUP:
+				case SDL_EVENT_MOUSE_BUTTON_DOWN:
+				case SDL_EVENT_MOUSE_BUTTON_UP:
 				{
-					if (SDL_IsTextInputActive() && this->imeCompositionStr)
+					if (SDL_TextInputActive(window) && this->imeCompositionStr)
 					{
 						return false;
 					}
@@ -2727,10 +2750,10 @@ bool TVPWindowWindow::window_receive_event_input(SDL_Event event)
 						TVPPostInputEvent(new tTVPOnMouseMoveInputEvent(this->TJSNativeInstance, this->lastMouseX, this->lastMouseY, s));
 						switch (event.type)
 						{
-							case SDL_MOUSEBUTTONDOWN:
+							case SDL_EVENT_MOUSE_BUTTON_DOWN:
 								TVPPostInputEvent(new tTVPOnMouseDownInputEvent(this->TJSNativeInstance, this->lastMouseX, this->lastMouseY, btn, s));
 								break;
-							case SDL_MOUSEBUTTONUP:
+							case SDL_EVENT_MOUSE_BUTTON_UP:
 								if (event.button.clicks >= 2)
 								{
 									TVPPostInputEvent(new tTVPOnDoubleClickInputEvent(this->TJSNativeInstance, this->lastMouseX, this->lastMouseY));
@@ -2746,58 +2769,54 @@ bool TVPWindowWindow::window_receive_event_input(SDL_Event event)
 					}
 					return false;
 				}
-				case SDL_MOUSEWHEEL:
+				case SDL_EVENT_MOUSE_WHEEL:
 				{
 					this->TranslateWindowToDrawArea(this->lastMouseX, this->lastMouseY);
 					TVPPostInputEvent(new tTVPOnMouseWheelInputEvent(this->TJSNativeInstance, event.wheel.x, event.wheel.y, this->lastMouseX, this->lastMouseY));
 					return true;
 				}
-				case SDL_FINGERMOTION:
+				case SDL_EVENT_FINGER_MOTION:
 				{
-					TVPPostInputEvent(new tTVPOnTouchMoveInputEvent(this->TJSNativeInstance, event.tfinger.x, event.tfinger.y, 1, 1, event.tfinger.fingerId));
+					TVPPostInputEvent(new tTVPOnTouchMoveInputEvent(this->TJSNativeInstance, event.tfinger.x, event.tfinger.y, 1, 1, event.tfinger.fingerID));
 					return true;
 				}
-				case SDL_FINGERDOWN:
-				case SDL_FINGERUP:
+				case SDL_EVENT_FINGER_DOWN:
+				case SDL_EVENT_FINGER_UP:
 				{
 					switch (event.tfinger.type)
 					{
-						case SDL_FINGERDOWN:
-							TVPPostInputEvent(new tTVPOnTouchDownInputEvent(this->TJSNativeInstance, event.tfinger.x, event.tfinger.y, 1, 1, event.tfinger.fingerId));
+						case SDL_EVENT_FINGER_DOWN:
+							TVPPostInputEvent(new tTVPOnTouchDownInputEvent(this->TJSNativeInstance, event.tfinger.x, event.tfinger.y, 1, 1, event.tfinger.fingerID));
 							break;
-						case SDL_FINGERUP:
-							TVPPostInputEvent(new tTVPOnTouchUpInputEvent(this->TJSNativeInstance, event.tfinger.x, event.tfinger.y, 1, 1, event.tfinger.fingerId));
-							break;
-					}
-					return true;
-				}
-				case SDL_MULTIGESTURE:
-				{
-					TVPPostInputEvent(new tTVPOnTouchScalingInputEvent(this->TJSNativeInstance, 0, event.mgesture.dDist, event.mgesture.x, event.mgesture.y, 0));
-					TVPPostInputEvent(new tTVPOnTouchRotateInputEvent(this->TJSNativeInstance, 0, event.mgesture.dTheta, event.mgesture.dDist, event.mgesture.x, event.mgesture.y, 0));
-					return true;
-				}
-				case SDL_CONTROLLERBUTTONDOWN:
-				case SDL_CONTROLLERBUTTONUP:
-				{
-					switch (event.cbutton.state)
-					{
-						case SDL_PRESSED:
-							TVPPostInputEvent(new tTVPOnKeyDownInputEvent(this->TJSNativeInstance, sdl_gamecontrollerbutton_to_vk_key(event.cbutton.button), s));
-							break;
-						case SDL_RELEASED:
-							if (!SDL_IsTextInputActive())
-							{
-								TVPPostInputEvent(new tTVPOnKeyPressInputEvent(this->TJSNativeInstance, sdl_gamecontrollerbutton_to_vk_key(event.cbutton.button)));
-							}
-							TVPPostInputEvent(new tTVPOnKeyUpInputEvent(this->TJSNativeInstance, sdl_gamecontrollerbutton_to_vk_key(event.cbutton.button), s));
+						case SDL_EVENT_FINGER_UP:
+							TVPPostInputEvent(new tTVPOnTouchUpInputEvent(this->TJSNativeInstance, event.tfinger.x, event.tfinger.y, 1, 1, event.tfinger.fingerID));
 							break;
 					}
 					return true;
 				}
-				case SDL_KEYDOWN:
+				// case SDL_MULTIGESTURE:
+				// {
+				// 	TVPPostInputEvent(new tTVPOnTouchScalingInputEvent(this->TJSNativeInstance, 0, event.mgesture.dDist, event.mgesture.x, event.mgesture.y, 0));
+				// 	TVPPostInputEvent(new tTVPOnTouchRotateInputEvent(this->TJSNativeInstance, 0, event.mgesture.dTheta, event.mgesture.dDist, event.mgesture.x, event.mgesture.y, 0));
+				// 	return true;
+				// }
+				case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+				case SDL_EVENT_GAMEPAD_BUTTON_UP:
 				{
-					if (SDL_IsTextInputActive())
+					if (event.gbutton.down)
+						TVPPostInputEvent(new tTVPOnKeyDownInputEvent(this->TJSNativeInstance, sdl_gamecontrollerbutton_to_vk_key(event.gbutton.button), s));
+					else {
+						if (!SDL_TextInputActive(window))
+						{
+							TVPPostInputEvent(new tTVPOnKeyPressInputEvent(this->TJSNativeInstance, sdl_gamecontrollerbutton_to_vk_key(event.gbutton.button)));
+						}
+						TVPPostInputEvent(new tTVPOnKeyUpInputEvent(this->TJSNativeInstance, sdl_gamecontrollerbutton_to_vk_key(event.gbutton.button), s));
+					}
+					return true;
+				}
+				case SDL_EVENT_KEY_DOWN:
+				{
+					if (SDL_TextInputActive(window))
 					{
 						if (this->imeCompositionStr)
 						{
@@ -2809,7 +2828,7 @@ bool TVPWindowWindow::window_receive_event_input(SDL_Event event)
 						s |= TVP_SS_REPEAT;
 					}
 					tjs_uint unified_vk_key = 0;
-					switch (event.key.keysym.sym)
+					switch (event.key.key)
 					{
 						case SDLK_LSHIFT:
 						case SDLK_RSHIFT:
@@ -2824,17 +2843,17 @@ bool TVPWindowWindow::window_receive_event_input(SDL_Event event)
 							unified_vk_key = VK_MENU;
 							break;
 					}
-					TVPPostInputEvent(new tTVPOnKeyDownInputEvent(this->TJSNativeInstance, sdl_key_to_vk_key(event.key.keysym.sym), s));
+					TVPPostInputEvent(new tTVPOnKeyDownInputEvent(this->TJSNativeInstance, sdl_key_to_vk_key(event.key.key), s));
 					if (unified_vk_key)
 					{
 						TVPPostInputEvent(new tTVPOnKeyDownInputEvent(this->TJSNativeInstance, unified_vk_key, s));
 					}
-					SDL_SetTextInputRect(&this->attentionPointRect);
+					SDL_SetTextInputArea(window, &this->attentionPointRect, 0);
 					return true;
 				}
-				case SDL_KEYUP:
+				case SDL_EVENT_KEY_UP:
 				{
-					if (SDL_IsTextInputActive())
+					if (SDL_TextInputActive(window))
 					{
 						if (this->imeCompositionStr)
 						{
@@ -2842,7 +2861,7 @@ bool TVPWindowWindow::window_receive_event_input(SDL_Event event)
 						}
 					}
 					tjs_uint unified_vk_key = 0;
-					switch (event.key.keysym.sym)
+					switch (event.key.key)
 					{
 						case SDLK_LSHIFT:
 						case SDLK_RSHIFT:
@@ -2857,20 +2876,20 @@ bool TVPWindowWindow::window_receive_event_input(SDL_Event event)
 							unified_vk_key = VK_MENU;
 							break;
 					}
-					if (!SDL_IsTextInputActive())
+					if (!SDL_TextInputActive(window))
 					{
-						TVPPostInputEvent(new tTVPOnKeyPressInputEvent(this->TJSNativeInstance, sdl_key_to_vk_key(event.key.keysym.sym)));
+						TVPPostInputEvent(new tTVPOnKeyPressInputEvent(this->TJSNativeInstance, sdl_key_to_vk_key(event.key.key)));
 						if (unified_vk_key)
 						{
 							TVPPostInputEvent(new tTVPOnKeyPressInputEvent(this->TJSNativeInstance, unified_vk_key));
 						}
 					}
-					TVPPostInputEvent(new tTVPOnKeyUpInputEvent(this->TJSNativeInstance, sdl_key_to_vk_key(event.key.keysym.sym), s));
+					TVPPostInputEvent(new tTVPOnKeyUpInputEvent(this->TJSNativeInstance, sdl_key_to_vk_key(event.key.key), s));
 					if (unified_vk_key)
 					{
 						TVPPostInputEvent(new tTVPOnKeyUpInputEvent(this->TJSNativeInstance, unified_vk_key, s));
 					}
-					SDL_SetTextInputRect(&this->attentionPointRect);
+					SDL_SetTextInputArea(window, &this->attentionPointRect, 0);
 					return true;
 				}
 				default:
@@ -2883,77 +2902,73 @@ bool TVPWindowWindow::window_receive_event_input(SDL_Event event)
 	return false;
 }
 
-void sdl_process_events()
+void sdl_process_events(SDL_Event event)
 {
-	if (!SDL_WasInit(SDL_INIT_EVENTS))
-	{
-		return;
-	}
-	SDL_Event event;
-	while (SDL_PollEvent(&event))
-	{
-#if defined(_WIN32) && defined(KRKRSDL2_USE_WIN32_EVENT_QUEUE)
-#else
-		if (event.type == NativeEventQueueImplement::native_event_queue_custom_event_type)
-		{
-			((NativeEvent*)event.user.data2)->HandleEvent();
-		}
-		else
-#endif
-		if (_currentWindowWindow)
-		{
-			_currentWindowWindow->window_receive_event(event);
-		}
-		else if (event.type == SDL_QUIT)
-		{
-			Application->Terminate();
-		}
-	}
-}
-
-#ifdef _WIN32
-static void sdl_windows_message_hook(void *userdata, void *hWnd, unsigned int message, Uint64 wParam, Sint64 lParam)
-{
-	TVPWindowWindow *win = reinterpret_cast<TVPWindowWindow*>(::GetWindowLongPtr((HWND)hWnd, GWLP_USERDATA));
-	tTVPWindowMessage Message;
-	Message.LParam = lParam;
-	Message.WParam = wParam;
-	Message.Msg = message;
-	Message.Result = 0;
-	if (win && win->InternalDeliverMessageToReceiver(Message))
-	{
-		// TODO: return Message.result and block
-	}
-}
-#endif
-
-#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
-static int sdl_event_watch(void *userdata, SDL_Event *in_event)
-{
-	SDL_Event event;
-	SDL_memcpy(&event, in_event, sizeof(SDL_Event));
 #if defined(_WIN32) && defined(KRKRSDL2_USE_WIN32_EVENT_QUEUE)
 #else
 	if (event.type == NativeEventQueueImplement::native_event_queue_custom_event_type)
 	{
-		return 1;
+		((NativeEvent*)event.user.data2)->HandleEvent();
 	}
+	else
 #endif
-	if (_currentWindowWindow && _currentWindowWindow->window_receive_event_input(event) && TVPSystemControl)
+	if (_currentWindowWindow)
 	{
-		// process events now
-		// Some JS functions will only work in e.g. mouse down callback due to browser restrictions
-		TVPSystemControl->ApplicationIdle();
+		_currentWindowWindow->window_receive_event(event);
 	}
-	return 1;
+	else if (event.type == SDL_EVENT_QUIT)
+	{
+		Application->Terminate();
+	}
+}
+
+#ifdef _WIN32
+// static void sdl_windows_message_hook(void *userdata, void *hWnd, unsigned int message, Uint64 wParam, Sint64 lParam)
+static bool sdl_windows_message_hook(void *userdata, MSG *msg)
+{
+	TVPWindowWindow *win = reinterpret_cast<TVPWindowWindow*>(::GetWindowLongPtr((HWND)msg->hwnd, GWLP_USERDATA));
+	tTVPWindowMessage Message;
+	Message.LParam = msg->lParam;
+	Message.WParam = msg->wParam;
+	Message.Msg = msg->message;
+	Message.Result = 0;
+	if (win && win->InternalDeliverMessageToReceiver(Message))
+	{
+		// TODO: return Message.result and block
+		return false;
+	}
+	return true;
 }
 #endif
 
-#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
-static void process_events()
-#else
+// #if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+// static int sdl_event_watch(void *userdata, SDL_Event *in_event)
+// {
+// 	SDL_Event event;
+// 	SDL_memcpy(&event, in_event, sizeof(SDL_Event));
+// #if defined(_WIN32) && defined(KRKRSDL2_USE_WIN32_EVENT_QUEUE)
+// #else
+// 	if (event.type == NativeEventQueueImplement::native_event_queue_custom_event_type)
+// 	{
+// 		return 1;
+// 	}
+// #endif
+// 	if (_currentWindowWindow && _currentWindowWindow->window_receive_event_input(event) && TVPSystemControl)
+// 	{
+// 		// process events now
+// 		// Some JS functions will only work in e.g. mouse down callback due to browser restrictions
+// 		TVPSystemControl->ApplicationIdle();
+// 	}
+// 	return 1;
+// }
+// #endif
+
+// #if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+// static void process_events()
+// #else
+// static bool process_events()
+// #endif
 static bool process_events()
-#endif
 {
 	try
 	{
@@ -2972,20 +2987,20 @@ static bool process_events()
 					delete TVPSystemControl;
 					TVPSystemControl = nullptr;
 				}
-#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
-				emscripten_cancel_main_loop();
-#else
+// #if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+// 				emscripten_cancel_main_loop();
+// #else
 				return false;
-#endif
+// #endif
 			}
 		}
 		TJS_CONVERT_TO_TJS_EXCEPTION
 	}
 	TVP_CATCH_AND_SHOW_SCRIPT_EXCEPTION(TJS_W("SDL event processing"));
 
-#if !defined(__EMSCRIPTEN__) || (defined(__EMSCRIPTEN__) && defined(__EMSCRIPTEN_PTHREADS__))
+// #if !defined(__EMSCRIPTEN__) || (defined(__EMSCRIPTEN__) && defined(__EMSCRIPTEN_PTHREADS__))
 	return true;
-#endif
+// #endif
 }
 
 void krkrsdl2_pre_init_platform(void)
@@ -3051,8 +3066,8 @@ bool krkrsdl2_init_platform(void)
 	nxlinkStdio();
 #endif
 
-	SDL_setenv("VITA_DISABLE_TOUCH_BACK", "1", 1);
-	SDL_setenv("DBUS_FATAL_WARNINGS", "0", 0);
+	// SDL_setenv("VITA_DISABLE_TOUCH_BACK", "1", 1);
+	// SDL_setenv("DBUS_FATAL_WARNINGS", "0", 0);
 
 #ifdef _WIN32
 #ifdef SDL_HINT_AUDIODRIVER
@@ -3064,7 +3079,7 @@ bool krkrsdl2_init_platform(void)
 #endif
 
 #ifdef TVP_LOG_TO_COMMANDLINE_CONSOLE
-	SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_VERBOSE);
+	SDL_SetLogPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_VERBOSE);
 #endif
 
 	TVPLoadMessage();
@@ -3072,20 +3087,24 @@ bool krkrsdl2_init_platform(void)
 #ifdef _WIN32
 	SDL_SetWindowsMessageHook(sdl_windows_message_hook, nullptr);
 #endif
-#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
-	SDL_AddEventWatch(sdl_event_watch, nullptr);
-#endif
+// #if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+// 	SDL_AddEventWatch(sdl_event_watch, nullptr);
+// #endif
 	::Application = new tTVPApplication();
 	return !!::Application->StartApplication(_argc, _wargv);
 }
 
-void krkrsdl2_run_main_loop(void)
+// void krkrsdl2_run_main_loop(void)
+// {
+// #if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+// 	emscripten_set_main_loop(process_events, 0, 0);
+// #else
+// 	while (process_events());
+// #endif
+// }
+bool krkrsdl2_process_events(void)
 {
-#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
-	emscripten_set_main_loop(process_events, 0, 0);
-#else
-	while (process_events());
-#endif
+	return process_events();
 }
 
 void krkrsdl2_cleanup(void)
@@ -3104,15 +3123,15 @@ bool TVPGetKeyMouseAsyncState(tjs_uint keycode, bool getcurrent)
 		switch (keycode)
 		{
 			case VK_LBUTTON:
-				return !!(state & SDL_BUTTON(SDL_BUTTON_LEFT));
+				return !!(state & SDL_BUTTON_MASK(SDL_BUTTON_LEFT));
 			case VK_RBUTTON:
-				return !!(state & SDL_BUTTON(SDL_BUTTON_RIGHT));
+				return !!(state & SDL_BUTTON_MASK(SDL_BUTTON_RIGHT));
 			case VK_MBUTTON:
-				return !!(state & SDL_BUTTON(SDL_BUTTON_MIDDLE));
+				return !!(state & SDL_BUTTON_MASK(SDL_BUTTON_MIDDLE));
 			case VK_XBUTTON1:
-				return !!(state & SDL_BUTTON(SDL_BUTTON_X1));
+				return !!(state & SDL_BUTTON_MASK(SDL_BUTTON_X1));
 			case VK_XBUTTON2:
-				return !!(state & SDL_BUTTON(SDL_BUTTON_X2));
+				return !!(state & SDL_BUTTON_MASK(SDL_BUTTON_X2));
 			default:
 				return false;
 		}
@@ -3123,17 +3142,17 @@ bool TVPGetKeyMouseAsyncState(tjs_uint keycode, bool getcurrent)
 		switch (keycode)
 		{
 			case VK_SHIFT:
-				return !!(state & KMOD_SHIFT);
+				return !!(state & SDL_KMOD_SHIFT);
 			case VK_MENU:
-				return !!(state & KMOD_ALT);
+				return !!(state & SDL_KMOD_ALT);
 			case VK_CONTROL:
-				return !!(state & KMOD_CTRL);
+				return !!(state & SDL_KMOD_CTRL);
 			default:
 				return false;
 		}
 	}
-	const Uint8 *state = SDL_GetKeyboardState(nullptr);
-	return !!(state[SDL_GetScancodeFromKey(vk_key_to_sdl_key(keycode))]);
+	const bool *state = SDL_GetKeyboardState(nullptr);
+	return state[SDL_GetScancodeFromKey(vk_key_to_sdl_key(keycode), nullptr)];
 }
 
 bool TVPGetJoyPadAsyncState(tjs_uint keycode, bool getcurrent)
@@ -3145,7 +3164,7 @@ bool TVPGetJoyPadAsyncState(tjs_uint keycode, bool getcurrent)
 		{
 			if (sdl_controllers[i])
 			{
-				is_pressed = is_pressed || !!SDL_GameControllerGetButton(sdl_controllers[i], (SDL_GameControllerButton)vk_key_to_sdl_gamecontrollerbutton(keycode));
+				is_pressed = is_pressed || !!SDL_GetGamepadButton(sdl_controllers[i], (SDL_GamepadButton)vk_key_to_sdl_gamecontrollerbutton(keycode));
 			}
 		}
 	}

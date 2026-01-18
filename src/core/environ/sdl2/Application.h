@@ -12,7 +12,7 @@
 #include <tuple>
 #include <map>
 #include <stack>
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 tjs_string ExePath();
 

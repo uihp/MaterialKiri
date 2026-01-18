@@ -4,7 +4,7 @@
 #pragma once
 #include "tjsCommHead.h"
 #include "WindowImpl.h"
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 class TVPSDLBitmapCompletion
 {

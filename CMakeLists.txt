@@ -30,9 +30,9 @@ endif()
 endmacro()
 endif()
 
-if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13")
+# if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13")
 cmake_policy(SET CMP0077 NEW)
-endif()
+# endif()
 option(OPTION_ENABLE_ASYNC_IMAGE_LOAD "Enable async image load. Not applicable to Emscripten build." ON)
 option(OPTION_ENABLE_CANVAS "Enable Canvas interface. Requires OpenGL ES or ANGLE at runtime." ON)
 option(OPTION_ENABLE_CASEINSENSITIVITY "Enable case insensitivity. May malfunction if directories in the path are not listable." ON)
@@ -193,6 +193,7 @@ list(APPEND KRKRSDL2_DEFINITIONS
 	PNG_ARM_NEON_OPT=0
 )
 
+list(APPEND KRKRSDL2_DEFINITIONS SDL_DISABLE_OLD_NAMES)
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten")
 list(APPEND KRKRSDL2_LDFLAGS
 	-sDISABLE_EXCEPTION_CATCHING=0
@@ -205,16 +206,16 @@ list(APPEND KRKRSDL2_LDFLAGS
 	-sMODULARIZE=1
 	-sEXPORT_NAME="instantiate_krkrsdl2_module"
 	-sEXPORTED_RUNTIME_METHODS=['FS','IDBFS']
-	-sUSE_SDL=2
+	-sUSE_SDL=3
 	-lidbfs.js
 	-lopenal
 	--bind
-	--no-heap-copy
+	# --no-heap-copy
 	-fPIC
 )
 list(APPEND KRKRSDL2_CFLAGS
 	-sDISABLE_EXCEPTION_CATCHING=0
-	-sUSE_SDL=2
+	-sUSE_SDL=3
 	-fPIC
 )
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -449,7 +450,8 @@ list(APPEND KRKRSDL2COMMON_INCLUDES
 )
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten")
 list(APPEND KRKRSDL2_LDFLAGS
-	-sMAX_WEBGL_VERSION=2
+	-sUSE_WEBGL2=1
+	-sMIN_WEBGL_VERSION=2
 	-sFULL_ES3=1
 )
 endif()
@@ -489,89 +491,107 @@ list(APPEND KRKRSDL2_LIBS
 )
 endif()
 
-if(NOT (${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten"))
-if(IOS)
-set(SDL_SHARED_ENABLED_BY_DEFAULT OFF)
+if(WIN32)
+set(SDL_STATIC ON)
 set(SDL_SHARED OFF)
-set(HAVE_GCC_WDECLARATION_AFTER_STATEMENT OFF CACHE BOOL "Intentionally disabled for SDL on iOS: can declaration-after-statement warning be used" FORCE)
-set(HAVE_GCC_WERROR_DECLARATION_AFTER_STATEMENT OFF CACHE BOOL "Intentionally disabled for SDL on iOS: can declaration-after-statement error warning be used" FORCE)
-add_subdirectory(external/SDL)
-find_library(SDL2 NAMES SDL2-static SDL2main)
+include(FetchContent)
+set(SDL3_GIT_REPO "https://github.com/libsdl-org/SDL.git" CACHE STRING "The SDL3 git repo")
+set(SDL3_GIT_TAG "main" CACHE STRING "The SDL3 git tag")
+FetchContent_Declare(
+	SDL3
+	GIT_REPOSITORY "${SDL3_GIT_REPO}"
+	GIT_TAG "${SDL3_GIT_TAG}"
+	UPDATE_DISCONNECTED TRUE
+	EXCLUDE_FROM_ALL
+)
+FetchContent_MakeAvailable(SDL3)
 list(APPEND KRKRSDL2_LIBS
-	SDL2-static
-	SDL2main
-)
-list(APPEND KRKRSDL2_DEFINITIONS
-	USE_SDL_MAIN
-)
-get_target_property(SDL2_INCLUDE_DIRS SDL2-static INCLUDE_DIRECTORIES)
-set(SDL2_LIBRARIES SDL2-static)
-elseif((APPLE AND NOT IOS) OR (${CMAKE_SYSTEM_NAME} STREQUAL "Linux"))
-set(SDL_SHARED_ENABLED_BY_DEFAULT OFF)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/SDL)
-find_library(SDL2 NAMES SDL2-static)
-list(APPEND KRKRSDL2_LIBS
-	SDL2-static
-)
-get_target_property(SDL2_INCLUDE_DIRS SDL2-static INCLUDE_DIRECTORIES)
-set(SDL2_LIBRARIES SDL2-static)
-elseif(ANDROID)
-set(SDL_SHARED_ENABLED_BY_DEFAULT ON)
-set(SDL_STATIC_ENABLED_BY_DEFAULT OFF)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/SDL)
-find_library(SDL2 NAMES SDL2 SDL2main)
-list(APPEND KRKRSDL2_LIBS
-	SDL2
-	SDL2main
-)
-list(APPEND KRKRSDL2_DEFINITIONS
-	USE_SDL_MAIN
-)
-elseif(WIN32)
-set(SDL_SHARED_ENABLED_BY_DEFAULT OFF)
-set(SDL_SHARED OFF)
-set(HAVE_WINDOWS_GAMING_INPUT_H NO)
-add_subdirectory(external/SDL)
-find_library(SDL2 NAMES SDL2-static)
-list(APPEND KRKRSDL2_LIBS
-	SDL2-static
-)
-get_target_property(SDL2_INCLUDE_DIRS SDL2-static INCLUDE_DIRECTORIES)
-set(SDL2_LIBRARIES SDL2-static)
-elseif(VITA)
-set(SDL_SHARED_ENABLED_BY_DEFAULT OFF)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/SDL)
-find_library(SDL2 NAMES SDL2-static)
-
-list(APPEND KRKRSDL2_LIBS
-	stdc++
-	pthread
-	stdc++
-
-	SDL2-static
-	SceAppUtil_stub
-	SceShellSvc_stub
-	m
-	z
-)
-get_target_property(SDL2_INCLUDE_DIRS SDL2-static INCLUDE_DIRECTORIES)
-set(SDL2_LIBRARIES SDL2-static)
-elseif(NINTENDO_SWITCH)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
-
-list(APPEND KRKRSDL2_LIBS
-	PkgConfig::SDL2
-)
-else()
-find_package(SDL2 REQUIRED)
-include_directories(${SDL2_INCLUDE_DIRS})
-
-list(APPEND KRKRSDL2_LIBS
-	${SDL2_LIBRARIES}
+	SDL3::SDL3
+	SDL3::Headers
 )
 endif()
-endif()
+
+# if(IOS)
+# set(SDL_SHARED_ENABLED_BY_DEFAULT OFF)
+# set(SDL_SHARED OFF)
+# set(HAVE_GCC_WDECLARATION_AFTER_STATEMENT OFF CACHE BOOL "Intentionally disabled for SDL on iOS: can declaration-after-statement warning be used" FORCE)
+# set(HAVE_GCC_WERROR_DECLARATION_AFTER_STATEMENT OFF CACHE BOOL "Intentionally disabled for SDL on iOS: can declaration-after-statement error warning be used" FORCE)
+# add_subdirectory(external/SDL)
+# find_library(SDL2 NAMES SDL2-static SDL2main)
+# list(APPEND KRKRSDL2_LIBS
+# 	SDL2-static
+# 	SDL2main
+# )
+# list(APPEND KRKRSDL2_DEFINITIONS
+# 	USE_SDL_MAIN
+# )
+# get_target_property(SDL2_INCLUDE_DIRS SDL2-static INCLUDE_DIRECTORIES)
+# set(SDL2_LIBRARIES SDL2-static)
+# elseif((APPLE AND NOT IOS) OR (${CMAKE_SYSTEM_NAME} STREQUAL "Linux"))
+# set(SDL_SHARED_ENABLED_BY_DEFAULT OFF)
+# add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/SDL)
+# find_library(SDL2 NAMES SDL2-static)
+# list(APPEND KRKRSDL2_LIBS
+# 	SDL2-static
+# )
+# get_target_property(SDL2_INCLUDE_DIRS SDL2-static INCLUDE_DIRECTORIES)
+# set(SDL2_LIBRARIES SDL2-static)
+# elseif(ANDROID)
+# set(SDL_SHARED_ENABLED_BY_DEFAULT ON)
+# set(SDL_STATIC_ENABLED_BY_DEFAULT OFF)
+# add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/SDL)
+# find_library(SDL2 NAMES SDL2 SDL2main)
+# list(APPEND KRKRSDL2_LIBS
+# 	SDL2
+# 	SDL2main
+# )
+# list(APPEND KRKRSDL2_DEFINITIONS
+# 	USE_SDL_MAIN
+# )
+# elseif(WIN32)
+# set(SDL_SHARED_ENABLED_BY_DEFAULT OFF)
+# set(SDL_SHARED OFF)
+# set(HAVE_WINDOWS_GAMING_INPUT_H NO)
+# add_subdirectory(external/SDL)
+# find_library(SDL2 NAMES SDL2-static)
+# list(APPEND KRKRSDL2_LIBS
+# 	SDL2-static
+# )
+# get_target_property(SDL2_INCLUDE_DIRS SDL2-static INCLUDE_DIRECTORIES)
+# set(SDL2_LIBRARIES SDL2-static)
+# elseif(VITA)
+# set(SDL_SHARED_ENABLED_BY_DEFAULT OFF)
+# add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/SDL)
+# find_library(SDL2 NAMES SDL2-static)
+
+# list(APPEND KRKRSDL2_LIBS
+# 	stdc++
+# 	pthread
+# 	stdc++
+
+# 	SDL2-static
+# 	SceAppUtil_stub
+# 	SceShellSvc_stub
+# 	m
+# 	z
+# )
+# get_target_property(SDL2_INCLUDE_DIRS SDL2-static INCLUDE_DIRECTORIES)
+# set(SDL2_LIBRARIES SDL2-static)
+# elseif(NINTENDO_SWITCH)
+# find_package(PkgConfig REQUIRED)
+# pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
+
+# list(APPEND KRKRSDL2_LIBS
+# 	PkgConfig::SDL2
+# )
+# else()
+# find_package(SDL2 REQUIRED)
+# include_directories(${SDL2_INCLUDE_DIRS})
+
+# list(APPEND KRKRSDL2_LIBS
+# 	${SDL2_LIBRARIES}
+# )
+# endif()
 
 add_subdirectory(external/ogg)
 add_subdirectory(external/vorbis)
@@ -601,7 +621,9 @@ list(APPEND KRKRSDL2_LIBS
 # include_directories(${OpenCV_INCLUDE_DIRS})
 # list(APPEND KRKRSDL2_LIBS ${OpenCV_LIBS})
 
-if(NOT (${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten"))
+# if(NOT (${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten"))
+if(WIN32)
+set(PLATFORM_WIN32 ON)
 set(XNASONG OFF CACHE BOOL "Intentionally disabled for FAudio: enable XNA_Song.c" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Intentionally disabled for FAudio: Build shared libraries" FORCE)
 set(_DISABLE_INSTALLATION_OLD ${_DISABLE_INSTALLATION})

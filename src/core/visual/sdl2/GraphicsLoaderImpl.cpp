@@ -115,19 +115,19 @@ void tTVPGraphicHandlerType::Header( tTJSBinaryStream *src, iTJSDispatch2** dic 
 //---------------------------------------------------------------------------
 // tTVPSusiePlugin
 //---------------------------------------------------------------------------
-tTVPSusiePlugin::tTVPSusiePlugin(void *inst, const char *api)
+tTVPSusiePlugin::tTVPSusiePlugin(SDL_SharedObject *inst, const char *api)
 {
 	ModuleInstance = inst;
 
 	// get functions
-	*(void**)&GetPluginInfo = SDL_LoadFunction(inst, "GetPluginInfo");
-	*(void**)&IsSupported = SDL_LoadFunction(inst, "IsSupported");
+	GetPluginInfo = (int(PASCAL *)(int,LPSTR,int))SDL_LoadFunction(inst, "GetPluginInfo");
+	IsSupported = (int(PASCAL*)(LPSTR,DWORD))SDL_LoadFunction(inst, "IsSupported");
 
-	*(void**)&GetPicture = SDL_LoadFunction(inst, "GetPicture");
+	GetPicture = (int(PASCAL*)(LPSTR,long,unsigned int,HANDLE*,HANDLE*,FARPROC,long))SDL_LoadFunction(inst, "GetPicture");
 
 
-	*(void**)&GetArchiveInfo = SDL_LoadFunction(inst, "GetArchiveInfo");
-	*(void**)&GetFile = SDL_LoadFunction(inst, "GetFile");
+	GetArchiveInfo = (int(PASCAL*)(LPSTR,long,unsigned int, HLOCAL *))SDL_LoadFunction(inst, "GetArchiveInfo");
+	GetFile = (int(PASCAL*)(LPSTR,long,LPSTR,unsigned int,FARPROC,long))SDL_LoadFunction(inst, "GetFile");
 
 	if(!memcmp(api, "00IN", 4))
 	{
@@ -206,7 +206,7 @@ class tTVPSusiePicturePlugin : public tTVPSusiePlugin
 {
 	tTVPBMPAlphaType AlphaType;
 public:
-	tTVPSusiePicturePlugin(void *inst, tTVPBMPAlphaType alphatype);
+	tTVPSusiePicturePlugin(SDL_SharedObject *inst, tTVPBMPAlphaType alphatype);
 	~tTVPSusiePicturePlugin();
 
 	tTVPBMPAlphaType GetAlphaType() const { return AlphaType; }
@@ -220,7 +220,7 @@ public:
 
 };
 //---------------------------------------------------------------------------
-tTVPSusiePicturePlugin::tTVPSusiePicturePlugin(void *inst,
+tTVPSusiePicturePlugin::tTVPSusiePicturePlugin(SDL_SharedObject *inst,
 	tTVPBMPAlphaType alphatype) : tTVPSusiePlugin(inst, "00IN")
 {
 	// member setup
@@ -374,7 +374,7 @@ static void TVPLoadViaSusiePlugin(void* formatdata, void *callbackdata,
 //---------------------------------------------------------------------------
 // TVPLoadPictureSPI/TVPUnloadPictureSPI : load/unload spi
 //---------------------------------------------------------------------------
-void TVPLoadPictureSPI(void *inst, tTVPBMPAlphaType alphatype)
+void TVPLoadPictureSPI(SDL_SharedObject *inst, tTVPBMPAlphaType alphatype)
 {
 	// load specified Picture Susie plug-in.
 	tTVPSusiePicturePlugin *spi = new tTVPSusiePicturePlugin(inst, alphatype);
@@ -389,7 +389,7 @@ void TVPLoadPictureSPI(void *inst, tTVPBMPAlphaType alphatype)
 	}
 }
 //---------------------------------------------------------------------------
-void TVPUnloadPictureSPI(void *inst)
+void TVPUnloadPictureSPI(SDL_SharedObject *inst)
 {
 	// unload specified Picture Susie plug-in from System.
 	tTVPSusiePicturePlugin** p = TVPSusiePluginList.Find(inst);

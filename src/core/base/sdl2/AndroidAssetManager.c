@@ -15,12 +15,12 @@ bool AndroidAssetManager_Create_AssetManager(void)
 		return true;
 	}
 
-	JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();
+	JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
 	if (env == NULL)
 	{
 		return false;
 	}
-	jobject context = (jobject)SDL_AndroidGetActivity();
+	jobject context = (jobject)SDL_GetAndroidActivity();
 
 	/* javaAssetManager = context.getAssets(); */
 	jmethodID mid = (*env)->GetMethodID(env, (*env)->GetObjectClass(env, context),
@@ -46,7 +46,7 @@ bool AndroidAssetManager_Create_AssetManager(void)
 
 void AndroidAssetManager_Destroy_AssetManager(void)
 {
-	JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();
+	JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
 
 	if (env != NULL && asset_manager != NULL)
 	{

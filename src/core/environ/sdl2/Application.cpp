@@ -61,7 +61,7 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #endif
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 #if 0
 #include "resource.h"
@@ -783,7 +783,7 @@ void tTVPApplication::Run() {
 	}
 	tarminate_ = true;
 #endif
-	sdl_process_events();
+	// sdl_process_events();
 	if (tarminate_)
 	{
 		return;

@@ -14,7 +14,7 @@
 #include "StorageIntf.h"
 #include "UtilStreams.h"
 #include <functional>
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 /*[*/
 #ifdef _WIN32
@@ -202,8 +202,8 @@ public:
 //---------------------------------------------------------------------------
 // Also defined in SusieArchive.h
 #ifdef _WIN32
-void TVPLoadArchiveSPI(void *inst);
-void TVPUnloadArchiveSPI(void *inst);
+void TVPLoadArchiveSPI(SDL_SharedObject *inst);
+void TVPUnloadArchiveSPI(SDL_SharedObject *inst);
 #endif
 //---------------------------------------------------------------------------
 
@@ -213,7 +213,7 @@ void TVPUnloadArchiveSPI(void *inst);
 class tTVPLocalFileStream : public tTJSBinaryStream
 {
 private:
-	SDL_RWops * io_handle;
+	SDL_IOStream * io_handle;
 	bool written;
 
 public:
@@ -230,7 +230,7 @@ public:
 
 	tjs_uint64 TJS_INTF_METHOD GetSize();
 
-	SDL_RWops * GetHandle() const { return io_handle; }
+	SDL_IOStream * GetHandle() const { return io_handle; }
 };
 //---------------------------------------------------------------------------
 

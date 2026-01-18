@@ -4,7 +4,7 @@
 #include "tjsCommHead.h"
 
 #ifdef KRKRZ_ENABLE_CANVAS
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include "OpenGLHeaderSDL2.h"
 
 #ifndef __EMSCRIPTEN__

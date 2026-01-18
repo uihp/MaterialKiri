@@ -2749,7 +2749,7 @@ static void STDCALL TVP_Stub_5f6d263c0d48d03f6eb0dc44c9dd0be2(tjs_uint32 * dest 
 #include "OpenGLHeader.h"
 static void * STDCALL TVP_Stub_57258100b04d7d2cc235de44be5fbb93(const char * procname)
 {
-	return TVPeglGetProcAddress(procname);
+	return (void*)TVPeglGetProcAddress(procname);
 }
 
 #include <zlib.h>

@@ -228,7 +228,7 @@ HRESULT STDMETHODCALLTYPE tTVPStorageProvider::GetStreamForRead(
 struct tTVPPlugin
 {
 	ttstr Name;
-	void *Instance = nullptr;
+	SDL_SharedObject *Instance = nullptr;
 
 	tTVPPluginHolder *Holder = nullptr;
 

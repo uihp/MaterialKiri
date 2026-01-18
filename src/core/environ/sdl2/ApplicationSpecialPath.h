@@ -10,7 +10,7 @@
 #include "FilePathUtil.h"
 #include "StorageIntf.h"
 #include "CharacterSet.h"
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 class ApplicationSpecialPath {
 public:

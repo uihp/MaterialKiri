@@ -17,7 +17,7 @@ extern "C" {
 #endif
 
 #if defined(__ANDROID__)
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include <android/asset_manager_jni.h>
 #include <stdbool.h>
 

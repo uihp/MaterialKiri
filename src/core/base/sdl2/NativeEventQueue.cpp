@@ -72,7 +72,7 @@ void NativeEventQueueImplement::PostEvent( const NativeEvent& event ) {
 #else
 #include "Application.h"
 #include "DebugIntf.h"
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 tjs_uint32 NativeEventQueueImplement::native_event_queue_custom_event_type = 0;
 
